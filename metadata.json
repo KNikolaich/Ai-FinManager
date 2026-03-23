@@ -1,0 +1,7 @@
+{
+  "name": "FinAI Manager 2",
+  "description": "AI-first personal finance manager with NLP-based transaction tracking, budgeting, and financial goals.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

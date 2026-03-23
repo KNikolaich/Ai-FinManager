@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Account": {
+      "title": "Financial Account",
+      "description": "A bank account, card, or cash wallet",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["card", "cash", "bank"] },
+        "balance": { "type": "number" },
+        "currency": { "type": "string" }
+      },
+      "required": ["userId", "name", "type", "balance", "currency"]
+    },
+    "Category": {
+      "title": "Transaction Category",
+      "description": "Categories for income and expenses",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "icon": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["userId", "name", "type", "icon", "color"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "An income or expense record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "accountId", "categoryId", "amount", "type", "createdAt"]
+    },
+    "Goal": {
+      "title": "Financial Goal",
+      "description": "A savings goal",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "targetAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "deadline": { "type": "string", "format": "date" }
+      },
+      "required": ["userId", "name", "targetAmount", "currentAmount"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Monthly budget for a category",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "limitAmount": { "type": "number" },
+        "period": { "type": "string", "enum": ["monthly"] }
+      },
+      "required": ["userId", "categoryId", "limitAmount", "period"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/accounts/{accountId}": {
+      "schema": "Account",
+      "description": "User financial accounts"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User categories"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "User transactions"
+    },
+    "/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "User savings goals"
+    },
+    "/budgets/{budgetId}": {
+      "schema": "Budget",
+      "description": "User budgets"
+    }
+  }
+}

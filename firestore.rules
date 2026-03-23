@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "kuznecov.maximuss@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.email is string && isValidEmail(data.email) &&
+             data.createdAt is string;
+    }
+
+    function isValidAccount(data) {
+      return data.userId is string && data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.type in ['card', 'cash', 'bank'] &&
+             data.balance is number &&
+             data.currency is string;
+    }
+
+    function isValidCategory(data) {
+      return data.userId is string && data.name is string && data.name.size() > 0 && data.name.size() < 50 &&
+             data.type in ['income', 'expense'] &&
+             data.icon is string &&
+             data.color is string;
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string && data.accountId is string && data.categoryId is string &&
+             data.amount is number && data.amount != 0 &&
+             data.type in ['income', 'expense'] &&
+             data.createdAt is string;
+    }
+
+    function isValidGoal(data) {
+      return data.userId is string && data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.targetAmount is number && data.targetAmount > 0 &&
+             data.currentAmount is number && data.currentAmount >= 0;
+    }
+
+    function isValidBudget(data) {
+      return data.userId is string && data.categoryId is string &&
+             data.limitAmount is number && data.limitAmount > 0 &&
+             data.period == 'monthly';
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && uidNotModified();
+    }
+
+    match /accounts/{accountId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidAccount(request.resource.data);
+      allow update: if isDocOwner() && isValidAccount(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidCategory(request.resource.data);
+      allow update: if isDocOwner() && isValidCategory(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidTransaction(request.resource.data);
+      allow update: if isDocOwner() && isValidTransaction(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /goals/{goalId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidGoal(request.resource.data);
+      allow update: if isDocOwner() && isValidGoal(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /budgets/{budgetId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidBudget(request.resource.data);
+      allow update: if isDocOwner() && isValidBudget(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+  }
+}
