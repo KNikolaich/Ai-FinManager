@@ -19,6 +19,12 @@ export interface Account {
   showInTotals: boolean;
 }
 
+export interface Subcategory {
+  id: string;
+  categoryId: string;
+  name: string;
+}
+
 export interface Category {
   id: string;
   userId: string;
@@ -26,6 +32,7 @@ export interface Category {
   type: TransactionType;
   icon: string;
   color: string;
+  subcategories?: Subcategory[];
 }
 
 export interface Transaction {
@@ -33,6 +40,7 @@ export interface Transaction {
   userId: string;
   accountId: string;
   categoryId: string;
+  subcategoryId?: string;
   amount: number;
   type: TransactionType;
   description: string;

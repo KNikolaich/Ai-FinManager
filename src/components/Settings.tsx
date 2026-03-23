@@ -1,11 +1,12 @@
 import { User } from 'firebase/auth';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc } from 'firebase/firestore';
-import { LogOut, User as UserIcon, Database, Shield, Github, Info, Sparkles, CheckCircle2, Eraser, Trash2, AlertTriangle } from 'lucide-react';
+import { LogOut, User as UserIcon, Database, Shield, Github, Info, Sparkles, CheckCircle2, Eraser, Trash2, AlertTriangle, Tag } from 'lucide-react';
 import { useState } from 'react';
 import { generateDemoData } from '../services/demoDataService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import CategoryManager from './CategoryManager';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -21,6 +22,7 @@ export default function Settings({ user, onLogout }: SettingsProps) {
   const [success, setSuccess] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
 
   const seedInitialData = async () => {
     setSeeding(true);
@@ -79,6 +81,8 @@ export default function Settings({ user, onLogout }: SettingsProps) {
 
       {/* Settings Sections */}
       <div className="space-y-4 relative">
+        {showCategoryManager && <CategoryManager user={user} onClose={() => setShowCategoryManager(false)} />}
+        
         {/* Clear Data Confirmation Overlay */}
         {showClearConfirm && (
           <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm rounded-3xl flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-200 border border-rose-100">
@@ -147,6 +151,19 @@ export default function Settings({ user, onLogout }: SettingsProps) {
             <div className="text-left">
               <p className="font-semibold text-sm">Экспорт данных</p>
               <p className="text-xs text-neutral-400">Скачать все операции в CSV</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setShowCategoryManager(true)}
+            className="w-full px-6 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors border-b border-neutral-50"
+          >
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <Tag className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-sm">Категории</p>
+              <p className="text-xs text-neutral-400">Управление категориями операций</p>
             </div>
           </button>
 

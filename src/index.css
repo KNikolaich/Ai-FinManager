@@ -23,18 +23,18 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
 
-  @utility brutal-border {
-    @apply border-2 border-brutal-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)];
-  }
-  
-  @utility brutal-border-sm {
-    @apply border border-brutal-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
-  }
+@utility brutal-border {
+  @apply border-2 border-brutal-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)];
+}
 
-  @utility brutal-btn {
-    @apply border-2 border-brutal-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-neon-green text-brutal-black font-display uppercase tracking-wider px-4 py-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all;
-  }
+@utility brutal-border-sm {
+  @apply border border-brutal-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
+}
+
+@utility brutal-btn {
+  @apply border-2 border-brutal-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-neon-green text-brutal-black font-display uppercase tracking-wider px-4 py-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all;
 }
 
 body {

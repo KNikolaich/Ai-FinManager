@@ -18,8 +18,10 @@ export default function EditTransaction({ transaction, accounts, categories, onC
   const [description, setDescription] = useState(transaction.description);
   const [selectedAccountId, setSelectedAccountId] = useState(transaction.accountId);
   const [selectedCategoryId, setSelectedCategoryId] = useState(transaction.categoryId);
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState(transaction.subcategoryId || null);
   const [date, setDate] = useState(format(new Date(transaction.createdAt), 'yyyy-MM-dd'));
   const [loading, setLoading] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -37,6 +39,7 @@ export default function EditTransaction({ transaction, accounts, categories, onC
         description,
         accountId: selectedAccountId,
         categoryId: selectedCategoryId,
+        subcategoryId: selectedSubcategoryId,
         createdAt: new Date(date).toISOString(),
       });
 
@@ -91,7 +94,7 @@ export default function EditTransaction({ transaction, accounts, categories, onC
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-white rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] relative">
+      <div className="w-full h-full bg-white overflow-hidden shadow-2xl flex flex-col relative">
         {/* Delete Confirmation Overlay */}
         {showDeleteConfirm && (
           <div className="absolute inset-0 z-[70] bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-200">
@@ -172,7 +175,7 @@ export default function EditTransaction({ transaction, accounts, categories, onC
           {/* Account Selection */}
           <div className="space-y-3">
             <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Счет</label>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 snap-x snap-mandatory">
+            <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory">
               {accounts.map(acc => (
                 <button
                   key={acc.id}
@@ -200,7 +203,10 @@ export default function EditTransaction({ transaction, accounts, categories, onC
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => setSelectedCategoryId(cat.id)}
+                  onClick={() => {
+                    setSelectedCategoryId(cat.id);
+                    setSelectedSubcategoryId(null);
+                  }}
                   className={cn(
                     "flex flex-col items-center gap-2 p-2 rounded-2xl border transition-all",
                     selectedCategoryId === cat.id 
@@ -213,6 +219,27 @@ export default function EditTransaction({ transaction, accounts, categories, onC
                 </button>
               ))}
             </div>
+            
+            {/* Subcategories */}
+            {selectedCategoryId && categories.find(c => c.id === selectedCategoryId)?.subcategories && (
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {categories.find(c => c.id === selectedCategoryId)?.subcategories?.map(sub => (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => setSelectedSubcategoryId(sub.id)}
+                    className={cn(
+                      "shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      selectedSubcategoryId === sub.id
+                        ? "bg-emerald-500 text-white"
+                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    )}
+                  >
+                    {sub.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

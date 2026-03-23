@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, doc, increment, writeBatch } from 'firebase/firestore';
 import { Account, Category, TransactionType } from '../types';
-import { X, Plus, CreditCard, Wallet as WalletIcon, Landmark, ArrowRightLeft } from 'lucide-react';
+import { X, Plus, CreditCard, Wallet as WalletIcon, Landmark, ArrowRightLeft, Tag } from 'lucide-react';
 
 interface AddTransactionProps {
   accounts: Account[];
@@ -191,7 +191,10 @@ export default function AddTransaction({ accounts, categories, onComplete }: Add
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => setSelectedCategoryId(cat.id)}
+                  onClick={() => {
+                    setSelectedCategoryId(cat.id);
+                    setDescription(`${cat.name}: `);
+                  }}
                   className="flex flex-col items-center gap-2"
                 >
                   <div 
@@ -208,11 +211,20 @@ export default function AddTransaction({ accounts, categories, onComplete }: Add
                   </span>
                 </button>
               ))}
-              <button type="button" className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-2xl border-2 border-dashed border-neutral-200 flex items-center justify-center text-neutral-300">
-                  <Plus className="w-6 h-6" />
+              <button 
+                type="button" 
+                onClick={() => setSelectedCategoryId('')}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl border-2 border-dashed flex items-center justify-center text-neutral-300",
+                  selectedCategoryId === '' ? "border-emerald-500 bg-emerald-50" : "border-neutral-200"
+                )}>
+                  <Tag className="w-6 h-6" />
                 </div>
-                <span className="text-[10px] font-medium text-neutral-400">Новая</span>
+                <span className={cn("text-[10px] font-medium text-center truncate w-full", selectedCategoryId === '' ? "text-emerald-600 font-bold" : "text-neutral-400")}>
+                  Все
+                </span>
               </button>
             </div>
           </div>
