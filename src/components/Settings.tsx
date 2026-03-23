@@ -1,12 +1,13 @@
 import { User } from 'firebase/auth';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc } from 'firebase/firestore';
-import { LogOut, User as UserIcon, Database, Shield, Github, Info, Sparkles, CheckCircle2, Eraser, Trash2, AlertTriangle, Tag } from 'lucide-react';
+import { LogOut, User as UserIcon, Database, Shield, Github, Info, Sparkles, CheckCircle2, Eraser, Trash2, AlertTriangle, Tag, FileDown } from 'lucide-react';
 import { useState } from 'react';
 import { generateDemoData } from '../services/demoDataService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import CategoryManager from './CategoryManager';
+import * as XLSX from 'xlsx';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -23,6 +24,7 @@ export default function Settings({ user, onLogout }: SettingsProps) {
   const [clearing, setClearing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const seedInitialData = async () => {
     setSeeding(true);
@@ -57,6 +59,31 @@ export default function Settings({ user, onLogout }: SettingsProps) {
       console.error('Clear error:', error);
     } finally {
       setClearing(false);
+    }
+  };
+
+  const exportData = async () => {
+    setExporting(true);
+    try {
+      const workbook = XLSX.utils.book_new();
+
+      const collections = ['transactions', 'accounts', 'categories', 'goals', 'budgets'];
+      
+      for (const colName of collections) {
+        const snap = await getDocs(query(collection(db, colName), where('userId', '==', user.uid)));
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(workbook, worksheet, colName);
+      }
+
+      const date = new Date().toISOString().split('T')[0];
+      const fileName = `backupAiFinAssistant_${date}.xlsx`;
+      
+      XLSX.writeFile(workbook, fileName);
+    } catch (error) {
+      console.error('Export error:', error);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -144,13 +171,21 @@ export default function Settings({ user, onLogout }: SettingsProps) {
             </button>
           </div>
           
-          <button className="w-full px-6 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors border-b border-neutral-50">
+          <button 
+            onClick={exportData}
+            disabled={exporting}
+            className="w-full px-6 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors border-b border-neutral-50"
+          >
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Database className="w-5 h-5 text-blue-600" />
+              {exporting ? (
+                <div className="w-5 h-5 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+              ) : (
+                <FileDown className="w-5 h-5 text-blue-600" />
+              )}
             </div>
             <div className="text-left">
               <p className="font-semibold text-sm">Экспорт данных</p>
-              <p className="text-xs text-neutral-400">Скачать все операции в CSV</p>
+              <p className="text-xs text-neutral-400">Скачать все данные в Excel</p>
             </div>
           </button>
 
@@ -179,7 +214,7 @@ export default function Settings({ user, onLogout }: SettingsProps) {
         </section>
 
         <section className="bg-white rounded-3xl border border-neutral-100 overflow-hidden shadow-sm">
-          <a href="https://github.com" target="_blank" className="w-full px-6 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors border-b border-neutral-50">
+          <a href="https://github.com/KNikolaich/AiFinAssistant" target="_blank" className="w-full px-6 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors border-b border-neutral-50">
             <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center">
               <Github className="w-5 h-5 text-neutral-600" />
             </div>

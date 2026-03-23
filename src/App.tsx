@@ -130,7 +130,7 @@ export default function App() {
       case 'dashboard': return <Dashboard accounts={accounts} transactions={transactions} goals={goals} budgets={budgets} categories={categories} userId={user?.uid || ''} />;
       case 'transactions': return <Transactions transactions={transactions} categories={categories} accounts={accounts} />;
       case 'add': return <AddTransaction accounts={accounts} categories={categories} onComplete={() => setActiveTab('dashboard')} />;
-      case 'analytics': return <Analytics transactions={transactions} categories={categories} />;
+      case 'analytics': return <Analytics transactions={transactions} categories={categories} accounts={accounts} />;
       case 'ai': return <AIAssistant accounts={accounts} categories={categories} transactions={transactions} budgets={budgets} goals={goals} />;
       case 'settings': return <Settings user={user} onLogout={logout} />;
       default: return <Dashboard accounts={accounts} transactions={transactions} goals={goals} budgets={budgets} categories={categories} userId={user?.uid || ''} />;

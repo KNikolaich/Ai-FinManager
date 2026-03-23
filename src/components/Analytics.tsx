@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react';
-import { Transaction, Category } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths, startOfYear, endOfYear } from 'date-fns';
+import { Transaction, Category, Account } from '../types';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from 'recharts';
+import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths, startOfYear, endOfYear, eachMonthOfInterval, isBefore, isAfter } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Calendar, X, ChevronLeft, ChevronRight, Filter, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface AnalyticsProps {
   transactions: Transaction[];
   categories: Category[];
+  accounts: Account[];
 }
 
 type DateFilterType = 'month' | 'period' | 'all';
 
-export default function Analytics({ transactions, categories }: AnalyticsProps) {
+export default function Analytics({ transactions, categories, accounts }: AnalyticsProps) {
   const [activeType, setActiveType] = useState<'expense' | 'income'>('expense');
   const [filterType, setFilterType] = useState<DateFilterType>('month');
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -60,6 +61,34 @@ export default function Analytics({ transactions, categories }: AnalyticsProps) 
       
     return Object.values(data).sort((a, b) => b.value - a.value);
   }, [filteredTransactions, categories, activeType]);
+
+  const monthlyBalanceTrend = useMemo(() => {
+    const accountsInTotal = accounts.filter(a => a.showInTotals);
+    const start = subMonths(new Date(), 5);
+    const end = new Date();
+    
+    const months = eachMonthOfInterval({ start, end });
+    
+    return months.map(month => {
+      const monthEnd = endOfMonth(month);
+      
+      let balance = 0;
+      
+      transactions.forEach(t => {
+        if (isBefore(new Date(t.createdAt), monthEnd) || isWithinInterval(new Date(t.createdAt), { start: startOfMonth(month), end: monthEnd })) {
+          if (accountsInTotal.some(a => a.id === t.accountId)) {
+            if (t.type === 'income') balance += t.amount;
+            else balance -= t.amount;
+          }
+        }
+      });
+      
+      return {
+        name: format(month, 'MMM', { locale: ru }),
+        balance
+      };
+    });
+  }, [transactions, accounts]);
 
   const monthlyTrend = useMemo(() => {
     const data: { [key: string]: { name: string, income: number, expense: number, rawDate: Date } } = {};
@@ -264,6 +293,34 @@ export default function Analytics({ transactions, categories }: AnalyticsProps) 
           </div>
         </section>
 
+        <section className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
+          <h3 className="font-bold text-lg mb-6">Динамика баланса</h3>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyBalanceTrend}>
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                  formatter={(value: number) => [`${value.toLocaleString()} ₽`, 'Баланс']}
+                />
+                <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
         {/* Bar Chart */}
         <section className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
           <h3 className="font-bold text-lg mb-6">Динамика</h3>
@@ -276,7 +333,12 @@ export default function Analytics({ transactions, categories }: AnalyticsProps) 
                   tickLine={false} 
                   tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
                 />
-                <YAxis hide />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                />
                 <Tooltip 
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
