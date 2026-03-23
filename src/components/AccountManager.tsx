@@ -149,6 +149,24 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
             )}
           </div>
 
+          {isAdding && (
+            <form onSubmit={handleAdd} className="bg-neutral-50 p-6 rounded-2xl mb-6 space-y-4">
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded-lg p-2 text-sm" placeholder="Название счета" required />
+              <select value={type} onChange={(e) => setType(e.target.value as AccountType)} className="w-full border rounded-lg p-2 text-sm">
+                <option value="card">Карта</option>
+                <option value="bank">Банк</option>
+                <option value="cash">Наличные</option>
+              </select>
+              <input type="number" value={balance} onChange={(e) => setBalance(e.target.value)} className="w-full border rounded-lg p-2 text-sm" placeholder="Начальный баланс" required />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={resetForm} className="px-4 py-2 bg-neutral-200 text-neutral-600 rounded-lg text-sm">Отмена</button>
+                <button type="submit" disabled={loading} className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-bold">
+                  {loading ? '...' : 'Сохранить'}
+                </button>
+              </div>
+            </form>
+          )}
+
           <div className="space-y-6">
             {(['bank', 'card', 'cash'] as AccountType[]).map(type => (
               <div key={type} className="space-y-2">
