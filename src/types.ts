@@ -15,6 +15,8 @@ export interface Account {
   type: AccountType;
   balance: number;
   currency: string;
+  showOnDashboard: boolean;
+  showInTotals: boolean;
 }
 
 export interface Category {
@@ -41,9 +43,12 @@ export interface Goal {
   id: string;
   userId: string;
   name: string;
+  description?: string;
   targetAmount: number;
   currentAmount: number;
   deadline?: string;
+  completedAt?: string;
+  isCompleted: boolean;
 }
 
 export interface Budget {

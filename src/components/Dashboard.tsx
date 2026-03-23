@@ -4,6 +4,7 @@ import { Wallet, TrendingUp, TrendingDown, Target, ChevronRight, CreditCard, Lan
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import AccountManager from './AccountManager';
+import GoalManager from './GoalManager';
 import TransactionHistory from './TransactionHistory';
 import EditTransaction from './EditTransaction';
 
@@ -18,10 +19,13 @@ interface DashboardProps {
 
 export default function Dashboard({ accounts, transactions, goals, budgets, categories, userId }: DashboardProps) {
   const [showAccountManager, setShowAccountManager] = useState(false);
+  const [showGoalManager, setShowGoalManager] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-  const totalBalance = useMemo(() => accounts.reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
+  const totalBalance = useMemo(() => accounts.filter(a => a.showInTotals).reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
+  
+  const dashboardAccounts = useMemo(() => accounts.filter(a => a.showOnDashboard), [accounts]);
   
   const monthlyStats = useMemo(() => {
     const now = new Date();
@@ -45,6 +49,8 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
   }, [transactions]);
+
+  const activeGoals = useMemo(() => goals.filter(g => !g.isCompleted), [goals]);
 
   return (
     <div className="p-1.5 sm:p-2 space-y-6">
@@ -87,7 +93,7 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
           </button>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-4 -mx-1.5 px-1.5 no-scrollbar snap-x snap-mandatory">
-          {accounts.map(account => {
+          {dashboardAccounts.map(account => {
             const isNegative = account.balance < 0;
             const Icon = account.type === 'card' ? CreditCard : account.type === 'bank' ? Landmark : Wallet;
             
@@ -114,7 +120,7 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
               </div>
             );
           })}
-          {accounts.length === 0 && (
+          {dashboardAccounts.length === 0 && (
             <p className="text-neutral-400 text-sm italic">Нет добавленных счетов</p>
           )}
         </div>
@@ -196,40 +202,30 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
       <section>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-lg">Цели</h3>
-          <button className="text-emerald-600 text-sm font-medium">Все</button>
+          <button onClick={() => setShowGoalManager(true)} className="text-emerald-600 text-sm font-medium">Все</button>
         </div>
         <div className="space-y-4">
-          {goals.map(goal => {
-            const progress = (goal.currentAmount / goal.targetAmount) * 100;
-            return (
-              <div key={goal.id} className="bg-white p-4 rounded-2xl border border-neutral-100">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                      <Target className="w-4 h-4 text-amber-600" />
-                    </div>
-                    <span className="font-semibold text-sm">{goal.name}</span>
-                  </div>
-                  <span className="text-xs font-bold text-neutral-400">{Math.round(progress)}%</span>
-                </div>
-                <div className="w-full bg-neutral-100 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-amber-500 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-2">
-                  <span className="text-[10px] text-neutral-400">{goal.currentAmount.toLocaleString()} ₽</span>
-                  <span className="text-[10px] text-neutral-400">из {goal.targetAmount.toLocaleString()} ₽</span>
-                </div>
+          {activeGoals.map(goal => (
+            <div key={goal.id} className="bg-white p-4 rounded-2xl border border-neutral-100">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm">{goal.name}</span>
+                <span className="text-xs text-neutral-400">{goal.deadline}</span>
               </div>
-            );
-          })}
-          {goals.length === 0 && (
+            </div>
+          ))}
+          {activeGoals.length === 0 && (
             <p className="text-neutral-400 text-sm italic">Нет активных целей</p>
           )}
         </div>
       </section>
+
+      {showGoalManager && (
+        <GoalManager 
+          goals={goals} 
+          userId={userId} 
+          onClose={() => setShowGoalManager(false)} 
+        />
+      )}
     </div>
   );
 }

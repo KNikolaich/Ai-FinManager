@@ -14,6 +14,8 @@ interface TransactionHistoryProps {
 
 export default function TransactionHistory({ transactions, categories, accounts, onClose, onEditTransaction }: TransactionHistoryProps) {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategoryId, setFilterCategoryId] = useState<string | 'all'>('all');
   const [showFilter, setShowFilter] = useState(false);
 
@@ -29,9 +31,14 @@ export default function TransactionHistory({ transactions, categories, accounts,
   }, [transactions, selectedMonth]);
 
   const filteredTransactions = useMemo(() => {
-    if (filterCategoryId === 'all') return monthTransactions;
-    return monthTransactions.filter(t => t.categoryId === filterCategoryId);
-  }, [monthTransactions, filterCategoryId]);
+    return monthTransactions.filter(t => {
+      const matchesSearch = t.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            categories.find(c => c.id === t.categoryId)?.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = filterType === 'all' || t.type === filterType;
+      const matchesCategory = filterCategoryId === 'all' || t.categoryId === filterCategoryId;
+      return matchesSearch && matchesType && matchesCategory;
+    });
+  }, [monthTransactions, searchQuery, filterType, filterCategoryId, categories]);
 
   const stats = useMemo(() => {
     const income = filteredTransactions
@@ -54,26 +61,53 @@ export default function TransactionHistory({ transactions, categories, accounts,
         </div>
 
         {/* Month Selector */}
-        <div className="p-4 bg-neutral-50 flex items-center justify-between shrink-0">
-          <button 
-            onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
-            className="p-2 hover:bg-white rounded-xl transition-all"
-          >
-            <ChevronLeft className="w-5 h-5 text-neutral-600" />
-          </button>
-          <div className="text-center">
-            <p className="text-sm font-bold capitalize">{format(selectedMonth, 'LLLL yyyy', { locale: ru })}</p>
-            <div className="flex gap-4 mt-1">
-              <span className="text-[10px] font-bold text-emerald-600">+{stats.income.toLocaleString()} ₽</span>
-              <span className="text-[10px] font-bold text-rose-500">-{stats.expense.toLocaleString()} ₽</span>
+        <div className="p-4 bg-neutral-50 flex flex-col gap-4 shrink-0">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
+              className="p-2 hover:bg-white rounded-xl transition-all"
+            >
+              <ChevronLeft className="w-5 h-5 text-neutral-600" />
+            </button>
+            <div className="text-center">
+              <p className="text-sm font-bold capitalize">{format(selectedMonth, 'LLLL yyyy', { locale: ru })}</p>
+              <div className="flex gap-4 mt-1">
+                <span className="text-[10px] font-bold text-emerald-600">+{stats.income.toLocaleString()} ₽</span>
+                <span className="text-[10px] font-bold text-rose-500">-{stats.expense.toLocaleString()} ₽</span>
+              </div>
+            </div>
+            <button 
+              onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
+              className="p-2 hover:bg-white rounded-xl transition-all"
+            >
+              <ChevronRight className="w-5 h-5 text-neutral-600" />
+            </button>
+          </div>
+
+          {/* Search and Type Filter */}
+          <div className="space-y-2">
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск по описанию или категории..."
+              className="w-full p-2.5 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <div className="flex bg-neutral-100 rounded-xl p-1">
+              {(['all', 'expense', 'income'] as const).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={cn(
+                    "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all",
+                    filterType === type ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500"
+                  )}
+                >
+                  {type === 'all' ? 'Все' : type === 'expense' ? 'Расход' : 'Доход'}
+                </button>
+              ))}
             </div>
           </div>
-          <button 
-            onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
-            className="p-2 hover:bg-white rounded-xl transition-all"
-          >
-            <ChevronRight className="w-5 h-5 text-neutral-600" />
-          </button>
         </div>
 
         {/* Transactions Table */}

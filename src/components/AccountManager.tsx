@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Account, AccountType } from '../types';
-import { X, Plus, Pencil, Trash2, Check, CreditCard, Wallet as WalletIcon, Landmark } from 'lucide-react';
+import { X, Plus, Trash2, Check, CreditCard, Wallet as WalletIcon, Landmark } from 'lucide-react';
 
 interface AccountManagerProps {
   accounts: Account[];
@@ -20,12 +20,17 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
   const [type, setType] = useState<AccountType>('card');
   const [balance, setBalance] = useState('');
   const [currency, setCurrency] = useState('₽');
+  const [showOnDashboard, setShowOnDashboard] = useState(true);
+  const [showInTotals, setShowInTotals] = useState(true);
 
-  const sortedAccounts = useMemo(() => {
-    return [...accounts].sort((a, b) => {
-      if (a.type !== b.type) return a.type.localeCompare(b.type);
-      return a.name.localeCompare(b.name);
-    });
+  const groupedAccounts = useMemo(() => {
+    const groups: Record<AccountType, Account[]> = {
+      card: [],
+      bank: [],
+      cash: []
+    };
+    accounts.forEach(acc => groups[acc.type].push(acc));
+    return groups;
   }, [accounts]);
 
   const resetForm = () => {
@@ -33,6 +38,8 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
     setType('card');
     setBalance('');
     setCurrency('₽');
+    setShowOnDashboard(true);
+    setShowInTotals(true);
     setIsAdding(false);
     setEditingId(null);
   };
@@ -47,7 +54,9 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
         name,
         type,
         balance: parseFloat(balance),
-        currency
+        currency,
+        showOnDashboard,
+        showInTotals
       });
       resetForm();
     } catch (error) {
@@ -65,7 +74,9 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
         name,
         type,
         balance: parseFloat(balance),
-        currency
+        currency,
+        showOnDashboard,
+        showInTotals
       });
       resetForm();
     } catch (error) {
@@ -93,6 +104,8 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
     setType(acc.type);
     setBalance(acc.balance.toString());
     setCurrency(acc.currency);
+    setShowOnDashboard(acc.showOnDashboard ?? true);
+    setShowInTotals(acc.showInTotals ?? true);
     setIsAdding(false);
   };
 
@@ -136,147 +149,42 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-xs font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-100">
-                  <th className="pb-4 pl-2">Тип</th>
-                  <th className="pb-4">Название</th>
-                  <th className="pb-4">Баланс</th>
-                  <th className="pb-4 text-right pr-2">Действия</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-50">
-                {/* Add Form Row */}
-                {isAdding && (
-                  <tr className="bg-emerald-50/50">
-                    <td className="py-4 pl-2">
-                      <select 
-                        value={type} 
-                        onChange={(e) => setType(e.target.value as AccountType)}
-                        className="bg-white border border-neutral-200 rounded-lg text-xs p-1 outline-none"
-                      >
-                        <option value="card">Карта</option>
-                        <option value="bank">Банк</option>
-                        <option value="cash">Наличные</option>
-                      </select>
-                    </td>
-                    <td className="py-4">
-                      <input 
-                        type="text" 
-                        value={name} 
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Название"
-                        className="bg-white border border-neutral-200 rounded-lg text-xs p-1 w-full outline-none"
-                        autoFocus
-                      />
-                    </td>
-                    <td className="py-4">
-                      <div className="flex items-center gap-1">
-                        <input 
-                          type="number" 
-                          value={balance} 
-                          onChange={(e) => setBalance(e.target.value)}
-                          placeholder="0"
-                          className="bg-white border border-neutral-200 rounded-lg text-xs p-1 w-20 outline-none"
-                        />
-                        <span className="text-xs text-neutral-400">₽</span>
-                      </div>
-                    </td>
-                    <td className="py-4 text-right pr-2">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={handleAdd} disabled={loading} className="p-1.5 bg-emerald-500 text-white rounded-lg">
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button onClick={resetForm} className="p-1.5 bg-neutral-200 text-neutral-600 rounded-lg">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-
-                {sortedAccounts.map(acc => (
-                  <tr key={acc.id} className="hover:bg-neutral-50/50 transition-colors">
+          <div className="space-y-6">
+            {(['bank', 'card', 'cash'] as AccountType[]).map(type => (
+              <div key={type} className="space-y-2">
+                <div className="flex items-center gap-2 text-neutral-500 pb-2 border-b border-neutral-100">
+                  {getIcon(type)}
+                  <span className="text-xs font-bold uppercase tracking-wider">{getTypeName(type)}</span>
+                </div>
+                
+                {groupedAccounts[type].map(acc => (
+                  <div key={acc.id} onClick={() => startEditing(acc)} className="p-4 hover:bg-neutral-50 rounded-2xl cursor-pointer transition-colors">
                     {editingId === acc.id ? (
-                      <>
-                        <td className="py-4 pl-2">
-                          <select 
-                            value={type} 
-                            onChange={(e) => setType(e.target.value as AccountType)}
-                            className="bg-white border border-neutral-200 rounded-lg text-xs p-1 outline-none"
-                          >
-                            <option value="card">Карта</option>
-                            <option value="bank">Банк</option>
-                            <option value="cash">Наличные</option>
-                          </select>
-                        </td>
-                        <td className="py-4">
-                          <input 
-                            type="text" 
-                            value={name} 
-                            onChange={(e) => setName(e.target.value)}
-                            className="bg-white border border-neutral-200 rounded-lg text-xs p-1 w-full outline-none"
-                          />
-                        </td>
-                        <td className="py-4">
-                          <div className="flex items-center gap-1">
-                            <input 
-                              type="number" 
-                              value={balance} 
-                              onChange={(e) => setBalance(e.target.value)}
-                              className="bg-white border border-neutral-200 rounded-lg text-xs p-1 w-20 outline-none"
-                            />
-                            <span className="text-xs text-neutral-400">₽</span>
-                          </div>
-                        </td>
-                        <td className="py-4 text-right pr-2">
-                          <div className="flex justify-end gap-2">
-                            <button onClick={() => handleUpdate(acc.id)} disabled={loading} className="p-1.5 bg-emerald-500 text-white rounded-lg">
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button onClick={resetForm} className="p-1.5 bg-neutral-200 text-neutral-600 rounded-lg">
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="border rounded-lg p-2 text-sm" placeholder="Название" />
+                          <input type="number" value={balance} onChange={(e) => setBalance(e.target.value)} className="border rounded-lg p-2 text-sm" placeholder="Баланс" />
+                        </div>
+                        <div className="flex items-center gap-6 text-sm">
+                          <label className="flex items-center gap-2"><input type="checkbox" checked={showOnDashboard} onChange={(e) => setShowOnDashboard(e.target.checked)} /> На главном</label>
+                          <label className="flex items-center gap-2"><input type="checkbox" checked={showInTotals} onChange={(e) => setShowInTotals(e.target.checked)} /> В суммах</label>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button onClick={(e) => { e.stopPropagation(); handleUpdate(acc.id); }} className="p-2 bg-emerald-500 text-white rounded-lg"><Check className="w-4 h-4" /></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(acc.id); }} className="p-2 bg-rose-500 text-white rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                          <button onClick={(e) => { e.stopPropagation(); resetForm(); }} className="p-2 bg-neutral-200 text-neutral-600 rounded-lg"><X className="w-4 h-4" /></button>
+                        </div>
+                      </div>
                     ) : (
-                      <>
-                        <td className="py-4 pl-2">
-                          <div className="flex items-center gap-2 text-neutral-500">
-                            {getIcon(acc.type)}
-                            <span className="text-[10px] font-medium uppercase tracking-wider">{getTypeName(acc.type)}</span>
-                          </div>
-                        </td>
-                        <td className="py-4">
-                          <span className="font-semibold text-sm">{acc.name}</span>
-                        </td>
-                        <td className="py-4">
-                          <span className="font-bold text-sm">{acc.balance.toLocaleString()} {acc.currency}</span>
-                        </td>
-                        <td className="py-4 text-right pr-2">
-                          <div className="flex justify-end gap-2">
-                            <button 
-                              onClick={() => startEditing(acc)}
-                              className="p-1.5 text-neutral-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(acc.id)}
-                              className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </>
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-sm">{acc.name}</span>
+                        <span className="font-bold text-sm">{acc.balance.toLocaleString()} {acc.currency}</span>
+                      </div>
                     )}
-                  </tr>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ))}
           </div>
         </div>
       </div>
