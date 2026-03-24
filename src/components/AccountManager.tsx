@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { db } from '../firebase';
+import { db, handleFirestoreError } from '../firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Account, AccountType } from '../types';
+import { Account, AccountType, OperationType } from '../types';
 import { X, Plus, Trash2, Check, CreditCard, Wallet as WalletIcon, Landmark } from 'lucide-react';
 
 interface AccountManagerProps {
@@ -60,7 +60,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
       });
       resetForm();
     } catch (error) {
-      console.error('Error adding account:', error);
+      handleFirestoreError(error, OperationType.CREATE, 'accounts');
     } finally {
       setLoading(false);
     }
@@ -80,7 +80,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
       });
       resetForm();
     } catch (error) {
-      console.error('Error updating account:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `accounts/${id}`);
     } finally {
       setLoading(false);
     }
@@ -92,7 +92,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
     try {
       await deleteDoc(doc(db, 'accounts', id));
     } catch (error) {
-      console.error('Error deleting account:', error);
+      handleFirestoreError(error, OperationType.DELETE, `accounts/${id}`);
     } finally {
       setLoading(false);
     }

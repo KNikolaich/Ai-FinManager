@@ -56,7 +56,7 @@ export default function TransactionHistory({ transactions, categories, accounts,
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full h-full sm:max-w-2xl bg-white shadow-2xl flex flex-col relative">
-        <div className="p-6 border-b border-neutral-100 flex items-center justify-between shrink-0">
+        <div className="py-3 px-6 border-b border-neutral-100 flex items-center justify-between shrink-0">
           <h2 className="text-xl font-bold">История операций</h2>
           <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-full transition-colors">
             <X className="w-6 h-6 text-neutral-400" />
@@ -64,46 +64,46 @@ export default function TransactionHistory({ transactions, categories, accounts,
         </div>
 
         {/* Month Selector */}
-        <div className="p-4 bg-neutral-50 flex flex-col gap-4 shrink-0">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="py-2 px-4 bg-neutral-50 flex flex-col gap-2 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
-                className="p-2 hover:bg-white rounded-xl transition-all"
+                className="p-1.5 hover:bg-white rounded-xl transition-all"
               >
-                <ChevronLeft className="w-5 h-5 text-neutral-600" />
+                <ChevronLeft className="w-4 h-4 text-neutral-600" />
               </button>
-              <div className="text-center min-w-[120px]">
-                <p className="text-sm font-bold capitalize">{format(selectedMonth, 'LLLL yyyy', { locale: ru })}</p>
-                <div className="flex justify-center gap-4 mt-1">
-                  <span className="text-[10px] font-bold text-emerald-600">+{stats.income.toLocaleString()} ₽</span>
-                  <span className="text-[10px] font-bold text-rose-500">-{stats.expense.toLocaleString()} ₽</span>
+              <div className="text-center min-w-[100px]">
+                <p className="text-xs font-bold capitalize">{format(selectedMonth, 'LLLL yyyy', { locale: ru })}</p>
+                <div className="flex justify-center gap-3 mt-0.5">
+                  <span className="text-[9px] font-bold text-emerald-600">+{stats.income.toLocaleString()} ₽</span>
+                  <span className="text-[9px] font-bold text-rose-500">-{stats.expense.toLocaleString()} ₽</span>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
-                className="p-2 hover:bg-white rounded-xl transition-all"
+                className="p-1.5 hover:bg-white rounded-xl transition-all"
               >
-                <ChevronRight className="w-5 h-5 text-neutral-600" />
+                <ChevronRight className="w-4 h-4 text-neutral-600" />
               </button>
             </div>
 
             {/* Search and Type Filter */}
-            <div className="flex-1 min-w-[250px] flex items-center gap-2">
+            <div className="flex-1 min-w-[200px] flex items-center gap-2">
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск..."
-                className="flex-1 p-2.5 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="flex-1 p-2 rounded-xl border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
-              <div className="flex bg-neutral-100 rounded-xl p-1 shrink-0">
+              <div className="flex bg-neutral-100 rounded-xl p-0.5 shrink-0">
                 {(['all', 'expense', 'income'] as const).map((type) => (
                   <button
                     key={type}
                     onClick={() => setFilterType(type)}
                     className={cn(
-                      "px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                      "px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all",
                       filterType === type ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500"
                     )}
                   >
@@ -120,8 +120,8 @@ export default function TransactionHistory({ transactions, categories, accounts,
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-white z-20 shadow-sm">
               <tr className="border-b border-neutral-100">
-                <th className="px-6 py-3 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Дата</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                <th className="px-6 py-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Дата</th>
+                <th className="px-6 py-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
                   <div className="flex items-center gap-2">
                     <span>Категория / Описание</span>
                     <div className="relative">
@@ -164,7 +164,7 @@ export default function TransactionHistory({ transactions, categories, accounts,
                     </div>
                   </div>
                 </th>
-                <th className="px-6 py-3 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                <th className="px-6 py-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
                   <div className="flex items-center gap-2">
                     <span>Счет</span>
                     <div className="relative">
@@ -206,7 +206,7 @@ export default function TransactionHistory({ transactions, categories, accounts,
                     </div>
                   </div>
                 </th>
-                <th className="px-6 py-3 text-[10px] font-bold text-neutral-400 uppercase tracking-widest text-right">Сумма</th>
+                <th className="px-6 py-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-widest text-right">Сумма</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50">
@@ -254,7 +254,7 @@ export default function TransactionHistory({ transactions, categories, accounts,
         </div>
 
         {/* Fixed Footer */}
-        <div className="p-6 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between shrink-0">
+        <div className="py-3 px-6 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between shrink-0">
           <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Итого за период</span>
           <p className={cn("text-lg font-bold", stats.total >= 0 ? "text-emerald-600" : "text-rose-600")}>
             {stats.total >= 0 ? '+' : ''}{stats.total.toLocaleString()} ₽

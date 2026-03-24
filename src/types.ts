@@ -1,11 +1,17 @@
 export type TransactionType = 'income' | 'expense';
 export type AccountType = 'card' | 'cash' | 'bank';
 
+export interface UserSettings {
+  showTotalBalance: boolean;
+  lastNudgeTime?: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
   createdAt: string;
   role?: 'admin' | 'user';
+  settings?: UserSettings;
 }
 
 export interface Account {
@@ -63,8 +69,29 @@ export interface Budget {
   id: string;
   userId: string;
   categoryId: string;
-  limitAmount: number;
-  period: 'monthly';
+  amount: number;
+  period: 'monthly' | 'weekly';
+  spent: number;
+}
+
+export interface Plan {
+  id: string;
+  userId: string;
+  name: string;
+  plannedAmount: number;
+  accountId: string;
+  priority: 'low' | 'medium' | 'high';
+  dateOfFinish: string;
+  month: string; // e.g., "2026-04"
+}
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  type?: 'text' | 'action' | 'suggestion';
+  actionType?: 'transaction' | 'goal' | 'plan';
+  actionData?: any;
 }
 
 export enum OperationType {

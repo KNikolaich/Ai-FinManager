@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, User, Sparkles, Loader2 } from 'lucide-react';
-import { parseTransaction, getFinancialAdvice } from '../services/aiService';
-import { db } from '../firebase';
-import { collection, addDoc, updateDoc, doc, increment } from 'firebase/firestore';
-import { Account, Category, Transaction, Goal, Budget } from '../types';
+import { Bot, Send, User, Sparkles, Loader2, PlusCircle, Target, PieChart, Calendar, Eraser } from 'lucide-react';
+import { processUserMessage, getFinancialAdvice } from '../services/aiService';
+import { db, handleFirestoreError } from '../firebase';
+import { collection, addDoc, updateDoc, doc, increment, writeBatch } from 'firebase/firestore';
+import { Account, Category, Transaction, Goal, Budget, Plan, Message, OperationType } from '../types';
 import ReactMarkdown from 'react-markdown';
 
 interface AIAssistantProps {
@@ -12,17 +12,11 @@ interface AIAssistantProps {
   transactions: Transaction[];
   budgets: Budget[];
   goals: Goal[];
+  plans: Plan[];
+  userId: string;
 }
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  type?: 'text' | 'action';
-  actionData?: any;
-}
-
-export default function AIAssistant({ accounts, categories, transactions, budgets, goals }: AIAssistantProps) {
+export default function AIAssistant({ accounts, categories, transactions, budgets, goals, plans, userId }: AIAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -38,51 +32,45 @@ export default function AIAssistant({ accounts, categories, transactions, budget
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  const handleSend = async (textOverride?: string) => {
+    const text = textOverride || input;
+    if (!text.trim() || loading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input
+      content: text
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    if (!textOverride) setInput('');
     setLoading(true);
 
     try {
-      // Logic to determine intent
-      if (input.toLowerCase().includes('совет') || input.toLowerCase().includes('анализ')) {
-        const advice = await getFinancialAdvice(transactions, budgets, goals);
+      const result = await processUserMessage(text, messages, accounts, categories, transactions, goals, budgets, plans);
+      
+      if (result.intent === 'advice') {
+        const advice = await getFinancialAdvice(transactions, budgets, goals, accounts, plans);
         setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           content: advice
         }]);
+      } else if (result.intent === 'unknown') {
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: result.message
+        }]);
       } else {
-        // Assume transaction parsing
-        const parsed = await parseTransaction(input, accounts, categories);
-        
-        if (parsed.amount && (parsed.accountId || accounts.length > 0)) {
-          const accountId = parsed.accountId || accounts[0].id;
-          const categoryId = parsed.categoryId || categories.find(c => c.type === parsed.type)?.id || categories[0]?.id;
-          
-          const assistantMsg: Message = {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: `Я распознал операцию: **${parsed.type === 'income' ? 'Доход' : 'Расход'}** на сумму **${parsed.amount} ₽**. Категория: *${categories.find(c => c.id === categoryId)?.name || 'Неизвестно'}*. Добавить?`,
-            type: 'action',
-            actionData: { ...parsed, accountId, categoryId }
-          };
-          setMessages(prev => [...prev, assistantMsg]);
-        } else {
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: 'Не совсем понял. Попробуй написать что-то вроде: "Потратил 500 рублей на такси по карте ВТБ"'
-          }]);
-        }
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: result.message,
+          type: 'action',
+          actionType: result.intent as any,
+          actionData: result.data
+        }]);
       }
     } catch (error) {
       console.error('AI Error:', error);
@@ -96,35 +84,192 @@ export default function AIAssistant({ accounts, categories, transactions, budget
     }
   };
 
-  const confirmAction = async (msgId: string, data: any) => {
+  const confirmAction = async (msgId: string, type: string, data: any) => {
     try {
-      const transactionData = {
-        userId: accounts[0].userId,
-        accountId: data.accountId,
-        categoryId: data.categoryId,
-        amount: data.amount,
-        type: data.type,
-        description: data.description,
-        createdAt: data.createdAt || new Date().toISOString()
-      };
+      if (!data) {
+        throw new Error('Не удалось получить данные для выполнения операции.');
+      }
+      if (type === 'transaction') {
+        // Try to find accountId by ID or by Name (more robust matching)
+        let accountId = data.accountId;
+        let foundAccount = accounts.find(a => {
+          const searchId = String(accountId).toLowerCase().trim();
+          const accountName = a.name.toLowerCase().trim();
+          const accountIdStr = String(a.id).toLowerCase().trim();
+          
+          return accountIdStr === searchId || 
+                 accountName === searchId || 
+                 accountName.includes(searchId) || 
+                 searchId.includes(accountName);
+        });
 
-      await addDoc(collection(db, 'transactions'), transactionData);
-      
-      const accountRef = doc(db, 'accounts', data.accountId);
-      await updateDoc(accountRef, {
-        balance: increment(data.type === 'income' ? data.amount : -data.amount)
-      });
+        // Fallback: if accountId is missing but there's only one account, use it
+        if (!foundAccount && accounts.length === 1) {
+          foundAccount = accounts[0];
+        }
 
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, type: 'text', content: m.content + '\n\n✅ **Операция успешно добавлена!**' } : m));
-    } catch (error) {
-      console.error('Confirm error:', error);
+        accountId = foundAccount?.id;
+
+        // Try to find categoryId by ID or by Name (more robust matching)
+        let categoryId = data.categoryId;
+        const foundCategory = categories.find(c => {
+          const searchId = String(categoryId).toLowerCase().trim();
+          const catName = c.name.toLowerCase().trim();
+          const catIdStr = String(c.id).toLowerCase().trim();
+
+          return catIdStr === searchId || 
+                 catName === searchId || 
+                 catName.includes(searchId) || 
+                 searchId.includes(catName);
+        });
+        categoryId = foundCategory?.id || (categories.length > 0 ? categories.find(c => c.type === data.type)?.id || categories[0].id : null);
+
+        if (!accountId) {
+          throw new Error('Не удалось определить счет. Пожалуйста, уточните название счета (например, Карта, Наличные).');
+        }
+        if (!categoryId) {
+          throw new Error('Не удалось определить категорию. Пожалуйста, укажите категорию операции.');
+        }
+
+        const amount = Number(data.amount);
+        if (isNaN(amount) || amount <= 0) {
+          throw new Error('Не удалось определить корректную сумму операции.');
+        }
+
+        if (data.type === 'transfer') {
+          let targetAccountId = data.targetAccountId;
+          const foundTargetAccount = accounts.find(a => {
+            const searchId = String(targetAccountId).toLowerCase().trim();
+            const accountName = a.name.toLowerCase().trim();
+            const accountIdStr = String(a.id).toLowerCase().trim();
+            
+            return accountIdStr === searchId || 
+                   accountName === searchId || 
+                   accountName.includes(searchId) || 
+                   searchId.includes(accountName);
+          });
+          targetAccountId = foundTargetAccount?.id;
+
+          if (!targetAccountId) {
+            throw new Error('Для перевода необходимо указать корректный целевой счет.');
+          }
+          const batch = writeBatch(db);
+          const sourceRef = doc(db, 'accounts', accountId);
+          const targetRef = doc(db, 'accounts', targetAccountId);
+          batch.update(sourceRef, { balance: increment(-amount) });
+          batch.update(targetRef, { balance: increment(amount) });
+          await batch.commit();
+        } else {
+          await addDoc(collection(db, 'transactions'), {
+            userId,
+            accountId,
+            categoryId,
+            amount,
+            type: data.type,
+            description: data.description || '',
+            createdAt: new Date().toISOString()
+          });
+          const accountRef = doc(db, 'accounts', accountId);
+          await updateDoc(accountRef, {
+            balance: increment(data.type === 'income' ? amount : -amount)
+          });
+        }
+      } else if (type === 'goal') {
+        const name = data.name;
+        const targetAmount = Number(data.targetAmount);
+
+        if (!name || isNaN(targetAmount) || targetAmount <= 0) {
+          throw new Error('Не удалось определить название цели или корректную сумму. Пожалуйста, укажите название и сумму (например, "На машину 500000").');
+        }
+
+        await addDoc(collection(db, 'goals'), {
+          userId,
+          name,
+          targetAmount,
+          currentAmount: 0,
+          deadline: data.deadline || null,
+          isCompleted: false
+        });
+      } else if (type === 'plan') {
+        const name = data.name;
+        const plannedAmount = Number(data.plannedAmount);
+        
+        if (!name || isNaN(plannedAmount) || plannedAmount <= 0) {
+          throw new Error('Не удалось определить название плана или корректную сумму.');
+        }
+
+        // Try to find accountId by ID or by Name (more robust matching)
+        let accountId = data.accountId;
+        let foundAccount = accounts.find(a => {
+          const searchId = String(accountId).toLowerCase().trim();
+          const accountName = a.name.toLowerCase().trim();
+          const accountIdStr = String(a.id).toLowerCase().trim();
+          
+          return accountIdStr === searchId || 
+                 accountName === searchId || 
+                 accountName.includes(searchId) || 
+                 searchId.includes(accountName);
+        });
+
+        // Fallback: if accountId is missing but there's only one account, use it
+        if (!foundAccount && accounts.length === 1) {
+          foundAccount = accounts[0];
+        }
+
+        accountId = foundAccount?.id;
+
+        if (!accountId) {
+          throw new Error('Не удалось определить счет для плана. Пожалуйста, укажите счет.');
+        }
+
+        await addDoc(collection(db, 'plans'), {
+          userId,
+          name,
+          plannedAmount,
+          accountId,
+          priority: data.priority || 'medium',
+          dateOfFinish: data.dateOfFinish || new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
+          month: new Date().toISOString().slice(0, 7)
+        });
+      }
+
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, type: 'text', content: m.content + '\n\n✅ **Готово! Операция успешно выполнена.**' } : m));
+    } catch (error: any) {
+      console.error('Action Error:', error);
+      const errorMessage = error.message || 'Произошла ошибка при выполнении операции.';
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, type: 'text', content: m.content + `\n\n❌ **Ошибка:** ${errorMessage}` } : m));
+      // Still log to firestore error handler if it was a firestore error
+      if (error.code || error.message?.includes('permissions')) {
+        try {
+          handleFirestoreError(error, OperationType.WRITE, type + 's');
+        } catch (e) {
+          // ignore re-throw
+        }
+      }
     }
   };
 
+  const quickActions = [   
+    { label: 'Анализ бюджета', icon: PieChart, text: 'Проанализируй мой бюджет и дай советы' },
+    { label: 'Добавить расход', icon: PlusCircle, text: 'Добавь расход 3500 рублей на продукты с Дебетовой карты' },
+    { label: 'Создать цель', icon: Target, text: 'Хочу накопить 50000 на новый велосипед к лету' },
+    { label: 'Продлить планы', icon: Calendar, text: 'Обнови планы на будущий месяц' },
+  ];
+
+  const clearChat = () => {
+    setMessages([
+      {
+        id: '1',
+        role: 'assistant',
+        content: 'Привет! Я твой финансовый ассистент. Могу помочь добавить операцию, создать цель или проанализировать бюджет. Просто напиши мне!'
+      }
+    ]);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-neutral-50 px-1.5 sm:px-2 lg:px-6">
+    <div className="flex flex-col h-full bg-neutral-50">
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         {messages.map((m) => (
           <div key={m.id} className={cn("flex gap-3", m.role === 'user' ? "flex-row-reverse" : "flex-row")}>
             <div className={cn(
@@ -133,7 +278,7 @@ export default function AIAssistant({ accounts, categories, transactions, budget
             )}>
               {m.role === 'assistant' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
             </div>
-            <div className="space-y-3 max-w-[80%]">
+            <div className="space-y-3 max-w-[85%]">
               <div className={cn(
                 "p-4 rounded-2xl text-sm shadow-sm",
                 m.role === 'assistant' ? "bg-white text-neutral-800 rounded-tl-none" : "bg-emerald-600 text-white rounded-tr-none"
@@ -148,7 +293,7 @@ export default function AIAssistant({ accounts, categories, transactions, budget
               {m.type === 'action' && (
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => confirmAction(m.id, m.actionData)}
+                    onClick={() => confirmAction(m.id, m.actionType!, m.actionData)}
                     className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
                   >
                     Подтвердить
@@ -180,42 +325,43 @@ export default function AIAssistant({ accounts, categories, transactions, budget
 
       {/* Input Area */}
       <div className="p-4 bg-white border-t border-neutral-100 shrink-0">
-        <div className="flex gap-2 mb-3 overflow-x-auto no-scrollbar">
-          <button 
-            onClick={() => setInput('Добавь расход 500р на кофе')}
-            className="shrink-0 bg-neutral-50 text-neutral-600 px-3 py-1.5 rounded-full text-xs font-medium border border-neutral-100"
-          >
-            ☕️ Кофе 500р
-          </button>
-          <button 
-            onClick={() => setInput('Дай финансовый совет')}
-            className="shrink-0 bg-neutral-50 text-neutral-600 px-3 py-1.5 rounded-full text-xs font-medium border border-neutral-100"
-          >
-            💡 Финансовый совет
-          </button>
-          <button 
-            onClick={() => setInput('Анализ моих трат')}
-            className="shrink-0 bg-neutral-50 text-neutral-600 px-3 py-1.5 rounded-full text-xs font-medium border border-neutral-100"
-          >
-            📊 Анализ трат
-          </button>
+        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
+          {quickActions.map((action, i) => (
+            <button 
+              key={i}
+              onClick={() => handleSend(action.text)}
+              className="shrink-0 flex items-center gap-2 bg-neutral-50 text-neutral-600 px-3 py-2 rounded-xl text-xs font-medium border border-neutral-100 hover:bg-neutral-100 transition-colors"
+            >
+              <action.icon className="w-3.5 h-3.5 text-emerald-500" />
+              {action.label}
+            </button>
+          ))}
         </div>
-        <div className="relative">
+        <div className="relative flex gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Спроси что-нибудь..."
-            className="w-full bg-neutral-50 border border-neutral-100 rounded-2xl pl-4 pr-12 py-4 outline-none focus:border-emerald-500 transition-all"
+            placeholder="Напиши мне что-нибудь..."
+            className="flex-1 bg-neutral-50 border border-neutral-100 rounded-2xl pl-4 pr-12 py-4 outline-none focus:border-emerald-500 transition-all"
           />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || loading}
-            className="absolute right-2 top-2 bottom-2 w-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center disabled:opacity-50 transition-all active:scale-95"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={clearChat}
+              title="Очистить чат"
+              className="w-12 bg-neutral-100 text-neutral-500 rounded-xl flex items-center justify-center hover:bg-neutral-200 transition-all active:scale-95"
+            >
+              <Eraser className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => handleSend()}
+              disabled={!input.trim() || loading}
+              className="w-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center disabled:opacity-50 transition-all active:scale-95"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

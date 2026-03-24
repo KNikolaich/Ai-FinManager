@@ -43,7 +43,9 @@ service cloud.firestore {
     // ===============================================================
     function isValidUser(data) {
       return data.email is string && isValidEmail(data.email) &&
-             data.createdAt is string;
+             data.createdAt is string &&
+             (!('role' in data) || data.role in ['admin', 'user']) &&
+             (!('settings' in data) || (data.settings is map && data.settings.showTotalBalance is bool));
     }
 
     function isValidAccount(data) {
@@ -77,6 +79,15 @@ service cloud.firestore {
       return data.userId is string && data.categoryId is string &&
              data.limitAmount is number && data.limitAmount > 0 &&
              data.period == 'monthly';
+    }
+
+    function isValidPlan(data) {
+      return data.userId is string && data.name is string && data.name.size() > 0 &&
+             data.plannedAmount is number && data.plannedAmount > 0 &&
+             data.accountId is string &&
+             data.priority in ['low', 'medium', 'high'] &&
+             data.dateOfFinish is string &&
+             data.month is string;
     }
 
     // ===============================================================
@@ -120,6 +131,13 @@ service cloud.firestore {
       allow read: if isDocOwner() || isAdmin();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidBudget(request.resource.data);
       allow update: if isDocOwner() && isValidBudget(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /plans/{planId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidPlan(request.resource.data);
+      allow update: if isDocOwner() && isValidPlan(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
     }
   }

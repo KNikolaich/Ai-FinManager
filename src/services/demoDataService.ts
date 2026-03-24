@@ -42,7 +42,7 @@ export const generateDemoData = async (userId: string) => {
   const existingAccounts = existingAccountsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Account));
   
   const accountData = [
-    { name: 'Дебетовая карта', type: 'card' as AccountType, balance: 250000, currency: '₽' },
+    { name: 'Наличные', type: 'cash' as AccountType, balance: 250000, currency: '₽' },
     { name: 'Кредитная карта', type: 'card' as AccountType, balance: -45000, currency: '₽' },
     { name: 'Бизнес-счет', type: 'bank' as AccountType, balance: 1200000, currency: '₽' },
   ];

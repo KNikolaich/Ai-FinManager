@@ -293,34 +293,6 @@ export default function Analytics({ transactions, categories, accounts }: Analyt
           </div>
         </section>
 
-        <section className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
-          <h3 className="font-bold text-lg mb-6">Динамика баланса</h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyBalanceTrend}>
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
-                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                  formatter={(value: number) => [`${value.toLocaleString()} ₽`, 'Баланс']}
-                />
-                <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
         {/* Bar Chart */}
         <section className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
           <h3 className="font-bold text-lg mb-6">Динамика</h3>
@@ -358,6 +330,34 @@ export default function Analytics({ transactions, categories, accounts }: Analyt
               <div className="w-3 h-3 rounded-full bg-rose-500" />
               <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Расход</span>
             </div>
+          </div>
+        </section>
+        
+        <section className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
+          <h3 className="font-bold text-lg mb-6">Динамика баланса</h3>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyBalanceTrend}>
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                  formatter={(value: number) => [`${value.toLocaleString()} ₽`, 'Баланс']}
+                />
+                <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </section>
       </div>
