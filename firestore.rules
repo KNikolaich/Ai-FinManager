@@ -43,6 +43,7 @@ service cloud.firestore {
     // ===============================================================
     function isValidUser(data) {
       return data.email is string && isValidEmail(data.email) &&
+             data.passwordHash is string && data.salt is string &&
              data.createdAt is string;
     }
 

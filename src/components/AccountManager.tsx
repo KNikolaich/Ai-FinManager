@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { db } from '../firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { Account, AccountType } from '../types';
 import { X, Plus, Trash2, Check, CreditCard, Wallet as WalletIcon, Landmark } from 'lucide-react';
 
@@ -49,7 +48,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
     if (!name || !balance) return;
     setLoading(true);
     try {
-      await addDoc(collection(db, 'accounts'), {
+      const { error } = await supabase.from('accounts').insert({
         userId,
         name,
         type,
@@ -58,6 +57,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
         showOnDashboard,
         showInTotals
       });
+      if (error) throw error;
       resetForm();
     } catch (error) {
       console.error('Error adding account:', error);
@@ -70,14 +70,15 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
     if (!name || !balance) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'accounts', id), {
+      const { error } = await supabase.from('accounts').update({
         name,
         type,
         balance: parseFloat(balance),
         currency,
         showOnDashboard,
         showInTotals
-      });
+      }).eq('id', id);
+      if (error) throw error;
       resetForm();
     } catch (error) {
       console.error('Error updating account:', error);
@@ -90,7 +91,8 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
     if (!confirm('Вы уверены, что хотите удалить этот счет? Все связанные операции останутся, но счет будет удален.')) return;
     setLoading(true);
     try {
-      await deleteDoc(doc(db, 'accounts', id));
+      const { error } = await supabase.from('accounts').delete().eq('id', id);
+      if (error) throw error;
     } catch (error) {
       console.error('Error deleting account:', error);
     } finally {

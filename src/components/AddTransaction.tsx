@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { db } from '../firebase';
-import { collection, addDoc, updateDoc, doc, increment, writeBatch } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { Account, Category, TransactionType } from '../types';
 import { X, Plus, CreditCard, Wallet as WalletIcon, Landmark, ArrowRightLeft, Tag } from 'lucide-react';
 
@@ -32,14 +31,13 @@ export default function AddTransaction({ accounts, categories, onComplete }: Add
       const numAmount = parseFloat(amount);
       
       if (type === 'transfer') {
-        const batch = writeBatch(db);
-        const sourceRef = doc(db, 'accounts', selectedAccountId);
-        const targetRef = doc(db, 'accounts', selectedTargetAccountId);
-        
-        batch.update(sourceRef, { balance: increment(-numAmount) });
-        batch.update(targetRef, { balance: increment(numAmount) });
-        
-        await batch.commit();
+        // Use RPC for atomic transfer
+        const { error } = await supabase.rpc('transfer_funds', {
+          source_account_id: selectedAccountId,
+          target_account_id: selectedTargetAccountId,
+          amount: numAmount
+        });
+        if (error) throw error;
       } else {
         const transactionData = {
           userId: accounts.find(a => a.id === selectedAccountId)?.userId,
@@ -51,12 +49,16 @@ export default function AddTransaction({ accounts, categories, onComplete }: Add
           createdAt: new Date().toISOString()
         };
 
-        await addDoc(collection(db, 'transactions'), transactionData);
+        const { error: transError } = await supabase.from('transactions').insert(transactionData);
+        if (transError) throw transError;
         
-        const accountRef = doc(db, 'accounts', selectedAccountId);
-        await updateDoc(accountRef, {
-          balance: increment(type === 'income' ? numAmount : -numAmount)
-        });
+        // Update account balance
+        const account = accounts.find(a => a.id === selectedAccountId);
+        if (account) {
+          const newBalance = account.balance + (type === 'income' ? numAmount : -numAmount);
+          const { error: accError } = await supabase.from('accounts').update({ balance: newBalance }).eq('id', selectedAccountId);
+          if (accError) throw accError;
+        }
       }
 
       onComplete();

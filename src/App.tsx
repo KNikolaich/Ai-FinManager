@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, signInWithGoogle, logout, db } from './firebase';
-import { collection, onSnapshot, query, where, doc, setDoc, getDoc } from 'firebase/firestore';
+import { supabase } from './lib/supabase';
 import { 
   LayoutDashboard, 
   ArrowLeftRight, 
@@ -23,14 +21,15 @@ import Analytics from './components/Analytics';
 import AIAssistant from './components/AIAssistant';
 import Settings from './components/Settings';
 import { Account, Category, Transaction, Goal, Budget } from './types';
+import { registerUser, loginUser } from './services/customAuthService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -39,60 +38,78 @@ export default function App() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      setLoading(false);
-      
-      if (u) {
-        // Ensure user document exists
-        const userRef = doc(db, 'users', u.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            email: u.email,
-            createdAt: new Date().toISOString()
-          });
-        }
+  // Auth state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsSubmitting(true);
+    
+    try {
+      if (isSignUp) {
+        const newUser = await registerUser(email, password);
+        setUser(newUser);
+      } else {
+        const loggedInUser = await loginUser(email, password);
+        setUser(loggedInUser);
       }
-    });
-    return () => unsubscribe();
-  }, []);
+    } catch (error: any) {
+      console.error('Auth error:', error);
+      setAuthError(error.message || 'Произошла ошибка при аутентификации');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const logout = async () => {
+    setUser(null);
+  };
 
   useEffect(() => {
     if (!user) return;
 
-    const qAccounts = query(collection(db, 'accounts'), where('userId', '==', user.uid));
-    const unsubAccounts = onSnapshot(qAccounts, (snap) => {
-      setAccounts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Account)));
-    });
+    const fetchData = async () => {
+      if (!user?.id) return;
 
-    const qCategories = query(collection(db, 'categories'), where('userId', '==', user.uid));
-    const unsubCategories = onSnapshot(qCategories, (snap) => {
-      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
-    });
+      const [
+        { data: accountsData },
+        { data: categoriesData },
+        { data: transactionsData },
+        { data: goalsData },
+        { data: budgetsData }
+      ] = await Promise.all([
+        supabase.from('accounts').select('*').eq('userId', user.id),
+        supabase.from('categories').select('*').eq('userId', user.id),
+        supabase.from('transactions').select('*').eq('userId', user.id),
+        supabase.from('goals').select('*').eq('userId', user.id),
+        supabase.from('budgets').select('*').eq('userId', user.id),
+      ]);
 
-    const qTransactions = query(collection(db, 'transactions'), where('userId', '==', user.uid));
-    const unsubTransactions = onSnapshot(qTransactions, (snap) => {
-      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)));
-    });
+      if (accountsData) setAccounts(accountsData as Account[]);
+      if (categoriesData) setCategories(categoriesData as Category[]);
+      if (transactionsData) setTransactions(transactionsData as Transaction[]);
+      if (goalsData) setGoals(goalsData as Goal[]);
+      if (budgetsData) setBudgets(budgetsData as Budget[]);
+    };
 
-    const qGoals = query(collection(db, 'goals'), where('userId', '==', user.uid));
-    const unsubGoals = onSnapshot(qGoals, (snap) => {
-      setGoals(snap.docs.map(d => ({ id: d.id, ...d.data() } as Goal)));
-    });
+    fetchData();
 
-    const qBudgets = query(collection(db, 'budgets'), where('userId', '==', user.uid));
-    const unsubBudgets = onSnapshot(qBudgets, (snap) => {
-      setBudgets(snap.docs.map(d => ({ id: d.id, ...d.data() } as Budget)));
-    });
+    // Real-time subscriptions
+    const channels = [
+      supabase.channel('accounts').on('postgres_changes', { event: '*', schema: 'public', table: 'accounts', filter: `userId=eq.${user.id}` }, fetchData).subscribe(),
+      supabase.channel('categories').on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `userId=eq.${user.id}` }, fetchData).subscribe(),
+      supabase.channel('transactions').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `userId=eq.${user.id}` }, fetchData).subscribe(),
+      supabase.channel('goals').on('postgres_changes', { event: '*', schema: 'public', table: 'goals', filter: `userId=eq.${user.id}` }, fetchData).subscribe(),
+      supabase.channel('budgets').on('postgres_changes', { event: '*', schema: 'public', table: 'budgets', filter: `userId=eq.${user.id}` }, fetchData).subscribe(),
+    ];
 
     return () => {
-      unsubAccounts();
-      unsubCategories();
-      unsubTransactions();
-      unsubGoals();
-      unsubBudgets();
+      channels.forEach(channel => supabase.removeChannel(channel));
     };
   }, [user]);
 
@@ -111,29 +128,44 @@ export default function App() {
           <LayoutDashboard className="w-12 h-12 text-emerald-600" />
         </div>
         <h1 className="text-3xl font-bold text-neutral-900 mb-2">FinAI Manager</h1>
-        <p className="text-neutral-500 mb-8 max-w-xs">
-          Умный помощник для ваших финансов. Управляйте бюджетом голосом и текстом.
-        </p>
-        <button
-          onClick={signInWithGoogle}
-          className="w-full max-w-xs flex items-center justify-center gap-3 bg-white border border-neutral-200 text-neutral-700 font-semibold py-3 px-4 rounded-xl shadow-sm hover:bg-neutral-50 transition-colors"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-          Войти через Google
-        </button>
+        <form onSubmit={handleAuth} className="w-full max-w-xs flex flex-col gap-4">
+          <input 
+            type="email" 
+            placeholder="Email" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            className="p-3 rounded-xl border border-neutral-200"
+            required
+          />
+          <input 
+            type="password" 
+            placeholder="Пароль" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            className="p-3 rounded-xl border border-neutral-200"
+            required
+          />
+          {authError && <p className="text-red-500 text-sm">{authError}</p>}
+          <button type="submit" disabled={isSubmitting} className="bg-emerald-500 text-white font-semibold py-3 px-4 rounded-xl shadow-sm hover:bg-emerald-600 transition-colors disabled:opacity-50">
+            {isSubmitting ? 'Загрузка...' : (isSignUp ? 'Зарегистрироваться' : 'Войти')}
+          </button>
+          <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-emerald-600 text-sm">
+            {isSignUp ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
+          </button>
+        </form>
       </div>
     );
   }
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard accounts={accounts} transactions={transactions} goals={goals} budgets={budgets} categories={categories} userId={user?.uid || ''} />;
+      case 'dashboard': return <Dashboard accounts={accounts} transactions={transactions} goals={goals} budgets={budgets} categories={categories} userId={user?.id || ''} />;
       case 'transactions': return <Transactions transactions={transactions} categories={categories} accounts={accounts} />;
       case 'add': return <AddTransaction accounts={accounts} categories={categories} onComplete={() => setActiveTab('dashboard')} />;
       case 'analytics': return <Analytics transactions={transactions} categories={categories} accounts={accounts} />;
       case 'ai': return <AIAssistant accounts={accounts} categories={categories} transactions={transactions} budgets={budgets} goals={goals} />;
-      case 'settings': return <Settings user={user} onLogout={logout} />;
-      default: return <Dashboard accounts={accounts} transactions={transactions} goals={goals} budgets={budgets} categories={categories} userId={user?.uid || ''} />;
+      case 'settings': return <Settings user={user as any} onLogout={logout} />;
+      default: return <Dashboard accounts={accounts} transactions={transactions} goals={goals} budgets={budgets} categories={categories} userId={user?.id || ''} />;
     }
   };
 
@@ -196,3 +228,4 @@ export default function App() {
     </div>
   );
 }
+
