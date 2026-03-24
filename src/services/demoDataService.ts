@@ -4,10 +4,6 @@ import { Account, Category, Transaction, AccountType } from '../types';
 import { subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, addDays } from 'date-fns';
 
 export const generateDemoData = async (userId: string) => {
-  if (!userId) {
-    console.error('generateDemoData called without userId');
-    return;
-  }
   console.log('Starting demo data generation for user:', userId);
   
   // 1. Ensure Categories exist
@@ -78,11 +74,6 @@ export const generateDemoData = async (userId: string) => {
   const transportCat = categories.find(c => c.name === 'Транспорт');
   const rentCat = categories.find(c => c.name === 'Аренда');
   const shoppingCat = categories.find(c => c.name === 'Покупки');
-
-  if (!salaryCat || !freelanceCat || !foodCat || !transportCat || !rentCat || !shoppingCat) {
-    console.error('Missing required categories for demo data generation');
-    return;
-  }
 
   let transBatch = writeBatch(db);
   let transCount = 0;

@@ -27,10 +27,6 @@ export default function Settings({ user, onLogout }: SettingsProps) {
   const [exporting, setExporting] = useState(false);
 
   const seedInitialData = async () => {
-    if (!user?.uid) {
-      console.error('No user ID available for seeding');
-      return;
-    }
     setSeeding(true);
     setSuccess(false);
     try {
