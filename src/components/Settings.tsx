@@ -16,9 +16,10 @@ function cn(...inputs: ClassValue[]) {
 interface SettingsProps {
   user: User;
   onLogout: () => void;
+  onShowLogs: () => void;
 }
 
-export default function Settings({ user, onLogout }: SettingsProps) {
+export default function Settings({ user, onLogout, onShowLogs }: SettingsProps) {
   const [seeding, setSeeding] = useState(false);
   const [success, setSuccess] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -199,6 +200,19 @@ export default function Settings({ user, onLogout }: SettingsProps) {
             <div className="text-left">
               <p className="font-semibold text-sm">Категории</p>
               <p className="text-xs text-neutral-400">Управление категориями операций</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={onShowLogs}
+            className="w-full px-6 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors border-b border-neutral-50"
+          >
+            <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center">
+              <Database className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-sm">Логи AI</p>
+              <p className="text-xs text-neutral-400">История запросов и ответов ассистента</p>
             </div>
           </button>
 

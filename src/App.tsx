@@ -22,6 +22,7 @@ import AddTransaction from './components/AddTransaction';
 import Analytics from './components/Analytics';
 import AIAssistant from './components/AIAssistant';
 import Settings from './components/Settings';
+import AILogs from './components/AILogs';
 import { Account, Category, Transaction, Goal, Budget, UserSettings, OperationType, Plan } from './types';
 
 function cn(...inputs: ClassValue[]) {
@@ -32,6 +33,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showAILogs, setShowAILogs] = useState(false);
   
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -41,6 +43,7 @@ export default function App() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings>({ showTotalBalance: true });
   const [assistantStatus, setAssistantStatus] = useState<'none' | 'warning' | 'alert' | 'nudge'>('none');
+  const [initialGoalData, setInitialGoalData] = useState<{ name?: string; targetAmount?: number; deadline?: string } | undefined>(undefined);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -242,13 +245,29 @@ export default function App() {
           categories={categories} 
           userId={user?.uid || ''} 
           showTotalBalance={userSettings.showTotalBalance}
+          initialGoalData={initialGoalData}
+          onCloseGoalManager={() => setInitialGoalData(undefined)}
         />
       );
       case 'transactions': return <Transactions transactions={transactions} categories={categories} accounts={accounts} />;
       case 'add': return <AddTransaction accounts={accounts} categories={categories} onComplete={() => setActiveTab('dashboard')} />;
       case 'analytics': return <Analytics transactions={transactions} categories={categories} accounts={accounts} />;
-      case 'ai': return <AIAssistant accounts={accounts} categories={categories} transactions={transactions} budgets={budgets} goals={goals} plans={plans} userId={user?.uid || ''} />;
-      case 'settings': return <Settings user={user} onLogout={logout} />;
+      case 'ai': return (
+        <AIAssistant 
+          accounts={accounts} 
+          categories={categories} 
+          transactions={transactions} 
+          budgets={budgets} 
+          goals={goals} 
+          plans={plans} 
+          userId={user?.uid || ''} 
+          onRedirectToCreateGoal={(data) => {
+            setInitialGoalData(data);
+            setActiveTab('dashboard');
+          }}
+        />
+      );
+      case 'settings': return <Settings user={user} onLogout={logout} onShowLogs={() => setShowAILogs(true)} />;
       default: return (
         <Dashboard 
           accounts={accounts} 
@@ -290,7 +309,7 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto pb-8">
+      <main className={cn("flex-1", activeTab !== 'ai' && "overflow-y-auto")}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -298,7 +317,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="h-full"
+            className={cn("h-full", activeTab !== 'ai' && "pb-20 sm:pb-8")}
           >
             {renderContent()}
           </motion.div>
@@ -330,6 +349,8 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {showAILogs && <AILogs userId={user.uid} onClose={() => setShowAILogs(false)} />}
     </div>
   );
 }

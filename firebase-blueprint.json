@@ -75,6 +75,33 @@
         "period": { "type": "string", "enum": ["monthly"] }
       },
       "required": ["userId", "categoryId", "limitAmount", "period"]
+    },
+    "AILog": {
+      "title": "AI Interaction Log",
+      "description": "Logs of AI requests and responses",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "request": { "type": "object" },
+        "response": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "request", "response", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message in the AI chat history",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "type": { "type": "string" },
+        "actionType": { "type": "string" },
+        "actionData": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "content", "createdAt"]
     }
   },
   "firestore": {
@@ -101,6 +128,14 @@
     "/budgets/{budgetId}": {
       "schema": "Budget",
       "description": "User budgets"
+    },
+    "/ai_logs/{logId}": {
+      "schema": "AILog",
+      "description": "AI communication logs"
+    },
+    "/chat_history/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "User AI chat history"
     }
   }
 }

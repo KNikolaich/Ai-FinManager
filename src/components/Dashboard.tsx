@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Account, Transaction, Goal, Budget, Category } from '../types';
 import { Wallet, TrendingUp, TrendingDown, Target, ChevronRight, CreditCard, Landmark } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import ReactMarkdown from 'react-markdown';
 import AccountManager from './AccountManager';
 import GoalManager from './GoalManager';
 import TransactionHistory from './TransactionHistory';
@@ -16,13 +17,31 @@ interface DashboardProps {
   categories: Category[];
   userId: string;
   showTotalBalance: boolean;
+  initialGoalData?: {
+    name?: string;
+    targetAmount?: number;
+    deadline?: string;
+  };
+  onCloseGoalManager?: () => void;
 }
 
-export default function Dashboard({ accounts, transactions, goals, budgets, categories, userId, showTotalBalance }: DashboardProps) {
+export default function Dashboard({ accounts, transactions, goals, budgets, categories, userId, showTotalBalance, initialGoalData, onCloseGoalManager }: DashboardProps) {
   const [showAccountManager, setShowAccountManager] = useState(false);
-  const [showGoalManager, setShowGoalManager] = useState(false);
+  const [showGoalManager, setShowGoalManager] = useState(!!initialGoalData);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  // Sync showGoalManager with initialGoalData
+  useEffect(() => {
+    if (initialGoalData) {
+      setShowGoalManager(true);
+    }
+  }, [initialGoalData]);
+
+  const handleCloseGoalManager = () => {
+    setShowGoalManager(false);
+    if (onCloseGoalManager) onCloseGoalManager();
+  };
 
   const totalBalance = useMemo(() => accounts.filter(a => a.showInTotals).reduce((sum, acc) => sum + acc.balance, 0), [accounts]);
   
@@ -51,7 +70,15 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
       .slice(0, 5);
   }, [transactions]);
 
-  const activeGoals = useMemo(() => goals.filter(g => !g.isCompleted), [goals]);
+  const activeGoals = useMemo(() => {
+    return goals
+      .filter(g => !g.isCompleted)
+      .sort((a, b) => {
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      });
+  }, [goals]);
 
   return (
     <div className="p-1.5 sm:p-2 space-y-6">
@@ -205,19 +232,69 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
       <section>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-lg">Цели</h3>
-          <button onClick={() => setShowGoalManager(true)} className="text-emerald-600 text-sm font-medium">Все</button>
+          <button onClick={() => setShowGoalManager(true)} className="text-emerald-600 text-sm font-medium hover:bg-emerald-50 px-2 py-1 rounded-lg transition-colors">Все</button>
         </div>
-        <div className="space-y-4">
-          {activeGoals.map(goal => (
-            <div key={goal.id} className="bg-white p-4 rounded-2xl border border-neutral-100">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm">{goal.name}</span>
-                <span className="text-xs text-neutral-400">{goal.deadline}</span>
+        <div className="space-y-3">
+          {activeGoals.map(goal => {
+            const progress = Math.min(100, (goal.currentAmount / goal.targetAmount) * 100);
+            
+            // Calculate color based on deadline proximity
+            let progressColor = 'bg-emerald-500';
+            if (goal.deadline) {
+              const deadlineDate = new Date(goal.deadline);
+              const now = new Date();
+              const diffDays = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              
+              if (progress < 100) {
+                if (diffDays <= 3) progressColor = 'bg-rose-600';
+                else if (diffDays <= 7) progressColor = 'bg-rose-500';
+                else if (diffDays <= 14) progressColor = 'bg-orange-500';
+                else if (diffDays <= 30) progressColor = 'bg-amber-500';
+              }
+            }
+
+            return (
+              <div key={goal.id} className="bg-white rounded-2xl border border-neutral-100 overflow-hidden shadow-sm hover:shadow-md transition-all">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-sm text-neutral-900">{goal.name}</span>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                      {goal.deadline ? format(new Date(goal.deadline), 'd MMM yyyy', { locale: ru }) : 'Без срока'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-end justify-between mb-3">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-tight">Накоплено</p>
+                      <p className="font-bold text-sm text-emerald-600">{goal.currentAmount.toLocaleString()} ₽</p>
+                    </div>
+                    <div className="text-right space-y-0.5">
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-tight">Цель</p>
+                      <p className="font-bold text-sm text-neutral-900">{goal.targetAmount.toLocaleString()} ₽</p>
+                    </div>
+                  </div>
+
+                  {goal.description && (
+                    <div className="prose prose-sm max-w-none text-neutral-500 text-[11px] leading-tight mb-1">
+                      <ReactMarkdown>{goal.description}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Thin progress bar at the bottom */}
+                <div className="h-1 w-full bg-neutral-100">
+                  <div 
+                    className={cn("h-full transition-all duration-500", progressColor)}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {activeGoals.length === 0 && (
-            <p className="text-neutral-400 text-sm italic">Нет активных целей</p>
+            <div className="text-center py-8 bg-white rounded-2xl border border-dashed border-neutral-200">
+              <p className="text-neutral-400 text-sm italic">Нет активных целей</p>
+            </div>
           )}
         </div>
       </section>
@@ -226,7 +303,8 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
         <GoalManager 
           goals={goals} 
           userId={userId} 
-          onClose={() => setShowGoalManager(false)} 
+          onClose={handleCloseGoalManager} 
+          initialData={initialGoalData}
         />
       )}
     </div>
