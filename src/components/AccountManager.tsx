@@ -26,8 +26,9 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
   const groupedAccounts = useMemo(() => {
     const groups: Record<AccountType, Account[]> = {
       card: [],
-      bank: [],
-      cash: []
+      credit: [],
+      cash: [],
+      bank: []
     };
     accounts.forEach(acc => groups[acc.type].push(acc));
     return groups;
@@ -112,6 +113,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
   const getIcon = (type: AccountType) => {
     switch (type) {
       case 'card': return <CreditCard className="w-4 h-4" />;
+      case 'credit': return <WalletIcon className="w-4 h-4" />;
       case 'bank': return <Landmark className="w-4 h-4" />;
       case 'cash': return <WalletIcon className="w-4 h-4" />;
     }
@@ -122,6 +124,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
       case 'card': return 'Карта';
       case 'bank': return 'Банк';
       case 'cash': return 'Наличные';
+      case 'credit': return 'Кредит';
     }
   };
 
@@ -154,8 +157,9 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full border rounded-lg p-2 text-sm" placeholder="Название счета" required />
               <select value={type} onChange={(e) => setType(e.target.value as AccountType)} className="w-full border rounded-lg p-2 text-sm">
                 <option value="card">Карта</option>
-                <option value="bank">Банк</option>
                 <option value="cash">Наличные</option>
+                <option value="credit">Кредит</option>                
+                <option value="bank">Банк</option>
               </select>
               <input type="number" value={balance} onChange={(e) => setBalance(e.target.value)} className="w-full border rounded-lg p-2 text-sm" placeholder="Начальный баланс" required />
               <div className="flex justify-end gap-2">
@@ -168,7 +172,7 @@ export default function AccountManager({ accounts, userId, onClose }: AccountMan
           )}
 
           <div className="space-y-6">
-            {(['bank', 'card', 'cash'] as AccountType[]).map(type => (
+            {(['bank', 'card', 'cash', 'credit'] as AccountType[]).map(type => (
               <div key={type} className="space-y-2">
                 <div className="flex items-center gap-2 text-neutral-500 pb-2 border-b border-neutral-100">
                   {getIcon(type)}

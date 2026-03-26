@@ -1,9 +1,10 @@
 import { User } from 'firebase/auth';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc } from 'firebase/firestore';
-import { LogOut, User as UserIcon, Database, Shield, Github, Info, Sparkles, CheckCircle2, Eraser, Trash2, AlertTriangle, Tag, FileDown } from 'lucide-react';
-import { useState } from 'react';
+import { LogOut, User as UserIcon, Database, Shield, Github, Info, Sparkles, CheckCircle2, Eraser, Trash2, AlertTriangle, Tag, FileDown, FileUp } from 'lucide-react';
+import { useState, useRef } from 'react';
 import { generateDemoData } from '../services/demoDataService';
+import { importFinancialData } from '../services/importService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import CategoryManager from './CategoryManager';
@@ -26,6 +27,34 @@ export default function Settings({ user, onLogout, onShowLogs }: SettingsProps) 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: boolean; count: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const result = await importFinancialData(file);
+      if (result.success) {
+        setImportResult({ success: true, count: result.count });
+        setTimeout(() => setImportResult(null), 5000);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Ошибка при импорте данных');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const seedInitialData = async () => {
     setSeeding(true);
@@ -69,12 +98,25 @@ export default function Settings({ user, onLogout, onShowLogs }: SettingsProps) 
       const workbook = XLSX.utils.book_new();
 
       const collections = ['transactions', 'accounts', 'categories', 'goals', 'budgets'];
+      let hasData = false;
       
       for (const colName of collections) {
-        const snap = await getDocs(query(collection(db, colName), where('userId', '==', user.uid)));
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        XLSX.utils.book_append_sheet(workbook, worksheet, colName);
+        try {
+          const snap = await getDocs(query(collection(db, colName), where('userId', '==', user.uid)));
+          if (!snap.empty) {
+            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(workbook, worksheet, colName);
+            hasData = true;
+          }
+        } catch (err) {
+          console.error(`Error exporting ${colName}:`, err);
+        }
+      }
+
+      if (!hasData) {
+        alert('Нет данных для экспорта');
+        return;
       }
 
       const date = new Date().toISOString().split('T')[0];
@@ -83,6 +125,7 @@ export default function Settings({ user, onLogout, onShowLogs }: SettingsProps) 
       XLSX.writeFile(workbook, fileName);
     } catch (error) {
       console.error('Export error:', error);
+      alert('Произошла ошибка при экспорте данных');
     } finally {
       setExporting(false);
     }
@@ -187,6 +230,38 @@ export default function Settings({ user, onLogout, onShowLogs }: SettingsProps) 
             <div className="text-left">
               <p className="font-semibold text-sm">Экспорт данных</p>
               <p className="text-xs text-neutral-400">Скачать все данные в Excel</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={handleImportClick}
+            disabled={importing}
+            className="w-full px-6 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors border-b border-neutral-50"
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".csv,.xlsx,.xls"
+              className="hidden"
+            />
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+              importResult?.success ? "bg-emerald-100" : "bg-orange-100"
+            )}>
+              {importing ? (
+                <div className="w-5 h-5 border-2 border-orange-600/30 border-t-orange-600 rounded-full animate-spin" />
+              ) : importResult?.success ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              ) : (
+                <FileUp className="w-5 h-5 text-orange-600" />
+              )}
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-sm">
+                {importing ? 'Импорт...' : importResult?.success ? `Импортировано: ${importResult.count}` : 'Импорт данных'}
+              </p>
+              <p className="text-xs text-neutral-400">Загрузить CSV или Excel файл</p>
             </div>
           </button>
 

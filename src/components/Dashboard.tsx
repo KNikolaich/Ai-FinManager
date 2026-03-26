@@ -3,6 +3,7 @@ import { Account, Transaction, Goal, Budget, Category } from '../types';
 import { Wallet, TrendingUp, TrendingDown, Target, ChevronRight, CreditCard, Landmark } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import AccountManager from './AccountManager';
 import GoalManager from './GoalManager';
@@ -83,33 +84,43 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
   return (
     <div className="p-1.5 sm:p-2 space-y-6">
       {/* Total Balance Card */}
-      {showTotalBalance && (
-        <div className="bg-emerald-500 rounded-3xl p-6 text-white shadow-xl shadow-emerald-100">
-          <p className="text-emerald-100 text-sm font-medium mb-1">Общий баланс</p>
-          <h2 className="text-4xl font-bold mb-6">{totalBalance.toLocaleString()} ₽</h2>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="bg-white/20 p-2 rounded-xl">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs text-emerald-100">Доход</p>
-                <p className="font-semibold">+{monthlyStats.income.toLocaleString()} ₽</p>
+      <AnimatePresence>
+        {showTotalBalance && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+            animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="bg-emerald-500 rounded-3xl p-6 text-white shadow-xl shadow-emerald-100">
+              <p className="text-emerald-100 text-sm font-medium mb-1">Общий баланс</p>
+              <h2 className="text-4xl font-bold mb-6">{totalBalance.toLocaleString()} ₽</h2>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
+                  <div className="bg-white/20 p-2 rounded-xl">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-100">Доход</p>
+                    <p className="font-semibold">+{monthlyStats.income.toLocaleString()} ₽</p>
+                  </div>
+                </div>
+                <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
+                  <div className="bg-white/20 p-2 rounded-xl">
+                    <TrendingDown className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-100">Расход</p>
+                    <p className="font-semibold">-{monthlyStats.expense.toLocaleString()} ₽</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
-              <div className="bg-white/20 p-2 rounded-xl">
-                <TrendingDown className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs text-emerald-100">Расход</p>
-                <p className="font-semibold">-{monthlyStats.expense.toLocaleString()} ₽</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Accounts Section */}
       <section>
@@ -193,8 +204,13 @@ export default function Dashboard({ accounts, transactions, goals, budgets, cate
                     <p className="text-[10px] text-neutral-400">{format(new Date(t.createdAt), 'd MMMM', { locale: ru })}</p>
                   </div>
                 </div>
-                <p className={cn("font-bold text-sm", t.type === 'income' ? "text-emerald-600" : "text-neutral-900")}>
-                  {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()} ₽
+                <p className={cn(
+                  "font-bold text-sm", 
+                  t.type === 'income' ? "text-emerald-600" : 
+                  t.type === 'transfer' ? "text-blue-600" : 
+                  "text-neutral-900"
+                )}>
+                  {t.type === 'income' ? '+' : t.type === 'transfer' ? '' : '-'}{t.amount.toLocaleString()} ₽
                 </p>
               </div>
             );

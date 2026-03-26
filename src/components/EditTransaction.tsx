@@ -34,17 +34,33 @@ export default function EditTransaction({ transaction, accounts, categories, onC
       const diff = newAmount - oldAmount;
 
       const transactionRef = doc(db, 'transactions', transaction.id);
-      await updateDoc(transactionRef, {
+      const updateData: any = {
         amount: newAmount,
         description,
         accountId: selectedAccountId,
-        categoryId: selectedCategoryId,
-        subcategoryId: selectedSubcategoryId,
         createdAt: new Date(date).toISOString(),
-      });
+      };
+      
+      if (transaction.type !== 'transfer') {
+        updateData.categoryId = selectedCategoryId;
+        updateData.subcategoryId = selectedSubcategoryId;
+      }
+      
+      await updateDoc(transactionRef, updateData);
 
-      // If account changed, we need to adjust both
-      if (selectedAccountId !== transaction.accountId) {
+      if (transaction.type === 'transfer' && transaction.targetAccountId) {
+        // Handle transfer update
+        const sourceAccRef = doc(db, 'accounts', transaction.accountId);
+        const targetAccRef = doc(db, 'accounts', transaction.targetAccountId);
+        
+        // Reverse old impact
+        await updateDoc(sourceAccRef, { balance: increment(oldAmount) });
+        await updateDoc(targetAccRef, { balance: increment(-oldAmount) });
+        
+        // Apply new impact
+        await updateDoc(sourceAccRef, { balance: increment(-newAmount) });
+        await updateDoc(targetAccRef, { balance: increment(newAmount) });
+      } else if (selectedAccountId !== transaction.accountId) {
         const oldAccRef = doc(db, 'accounts', transaction.accountId);
         const newAccRef = doc(db, 'accounts', selectedAccountId);
         
@@ -79,10 +95,17 @@ export default function EditTransaction({ transaction, accounts, categories, onC
       const transactionRef = doc(db, 'transactions', transaction.id);
       await deleteDoc(transactionRef);
 
-      const accRef = doc(db, 'accounts', transaction.accountId);
-      await updateDoc(accRef, {
-        balance: increment(transaction.type === 'expense' ? transaction.amount : -transaction.amount)
-      });
+      if (transaction.type === 'transfer' && transaction.targetAccountId) {
+        const sourceAccRef = doc(db, 'accounts', transaction.accountId);
+        const targetAccRef = doc(db, 'accounts', transaction.targetAccountId);
+        await updateDoc(sourceAccRef, { balance: increment(transaction.amount) });
+        await updateDoc(targetAccRef, { balance: increment(-transaction.amount) });
+      } else {
+        const accRef = doc(db, 'accounts', transaction.accountId);
+        await updateDoc(accRef, {
+          balance: increment(transaction.type === 'expense' ? transaction.amount : -transaction.amount)
+        });
+      }
 
       onClose();
     } catch (error) {

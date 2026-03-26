@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Transaction, Category, Account } from '../types';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { X, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, Filter } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, Filter, ArrowRightLeft } from 'lucide-react';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -35,13 +35,14 @@ export default function TransactionHistory({ transactions, categories, accounts,
   const filteredTransactions = useMemo(() => {
     return monthTransactions.filter(t => {
       const matchesSearch = t.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            categories.find(c => c.id === t.categoryId)?.name.toLowerCase().includes(searchQuery.toLowerCase());
+                            categories.find(c => c.id === t.categoryId)?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            accounts.find(a => a.id === t.targetAccountId)?.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = filterType === 'all' || t.type === filterType;
       const matchesCategory = filterCategoryId === 'all' || t.categoryId === filterCategoryId;
-      const matchesAccount = filterAccountId === 'all' || t.accountId === filterAccountId;
+      const matchesAccount = filterAccountId === 'all' || t.accountId === filterAccountId || t.targetAccountId === filterAccountId;
       return matchesSearch && matchesType && matchesCategory && matchesAccount;
     });
-  }, [monthTransactions, searchQuery, filterType, filterCategoryId, filterAccountId, categories]);
+  }, [monthTransactions, searchQuery, filterType, filterCategoryId, filterAccountId, categories, accounts]);
 
   const stats = useMemo(() => {
     const income = filteredTransactions
@@ -213,6 +214,8 @@ export default function TransactionHistory({ transactions, categories, accounts,
               {filteredTransactions.map(t => {
                 const category = categories.find(c => c.id === t.categoryId);
                 const account = accounts.find(a => a.id === t.accountId);
+                const targetAccount = t.targetAccountId ? accounts.find(a => a.id === t.targetAccountId) : null;
+                
                 return (
                   <tr 
                     key={t.id} 
@@ -224,21 +227,35 @@ export default function TransactionHistory({ transactions, categories, accounts,
                     </td>
                     <td className="px-6 py-2">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{category?.icon || '💰'}</span>
+                        <span className="text-lg">{t.type === 'transfer' ? '🔄' : (category?.icon || '💰')}</span>
                         <div>
-                          <p className="text-xs font-bold text-neutral-900 truncate max-w-[120px]">{t.description || category?.name || 'Без описания'}</p>
+                          <p className="text-xs font-bold text-neutral-900 truncate max-w-[120px]">{t.description || category?.name || (t.type === 'transfer' ? 'Перевод' : 'Без описания')}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-2">
-                      <p className="text-xs font-bold text-neutral-900">{account?.name || 'Счет'}</p>
+                      <p className="text-xs font-bold text-neutral-900">
+                        {account?.name || 'Счет'}
+                        {targetAccount && ` → ${targetAccount.name}`}
+                      </p>
                     </td>
                     <td className="px-6 py-2 text-right">
-                      <p className={cn("text-xs font-bold", t.type === 'income' ? "text-emerald-600" : "text-neutral-900")}>
-                        {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()} ₽
+                      <p className={cn(
+                        "text-xs font-bold", 
+                        t.type === 'income' ? "text-emerald-600" : 
+                        t.type === 'transfer' ? "text-blue-600" : 
+                        "text-neutral-900"
+                      )}>
+                        {t.type === 'income' ? '+' : t.type === 'transfer' ? '' : '-'}{t.amount.toLocaleString()} ₽
                       </p>
                       <div className="flex items-center justify-end gap-1">
-                        {t.type === 'income' ? <ArrowDownLeft className="w-3 h-3 text-emerald-500" /> : <ArrowUpRight className="w-3 h-3 text-neutral-300" />}
+                        {t.type === 'income' ? (
+                          <ArrowDownLeft className="w-3 h-3 text-emerald-500" />
+                        ) : t.type === 'transfer' ? (
+                          <ArrowRightLeft className="w-3 h-3 text-blue-500" />
+                        ) : (
+                          <ArrowUpRight className="w-3 h-3 text-neutral-300" />
+                        )}
                       </div>
                     </td>
                   </tr>

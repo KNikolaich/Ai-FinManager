@@ -17,11 +17,13 @@
       "properties": {
         "userId": { "type": "string" },
         "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["card", "cash", "bank"] },
+        "type": { "type": "string", "enum": ["card", "cash", "bank", "credit"] },
         "balance": { "type": "number" },
-        "currency": { "type": "string" }
+        "currency": { "type": "string" },
+        "showOnDashboard": { "type": "boolean" },
+        "showInTotals": { "type": "boolean" }
       },
-      "required": ["userId", "name", "type", "balance", "currency"]
+      "required": ["userId", "name", "type", "balance", "currency", "showOnDashboard", "showInTotals"]
     },
     "Category": {
       "title": "Transaction Category",
@@ -38,18 +40,19 @@
     },
     "Transaction": {
       "title": "Financial Transaction",
-      "description": "An income or expense record",
+      "description": "An income, expense, or transfer record",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
         "accountId": { "type": "string" },
+        "targetAccountId": { "type": "string" },
         "categoryId": { "type": "string" },
         "amount": { "type": "number" },
-        "type": { "type": "string", "enum": ["income", "expense"] },
+        "type": { "type": "string", "enum": ["income", "expense", "transfer"] },
         "description": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "accountId", "categoryId", "amount", "type", "createdAt"]
+      "required": ["userId", "accountId", "amount", "type", "createdAt"]
     },
     "Goal": {
       "title": "Financial Goal",

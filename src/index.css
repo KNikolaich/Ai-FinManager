@@ -1,14 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Anton", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
-  --color-neon-green: #00FF00;
-  --color-brutal-black: #000000;
-  --color-brutal-white: #FFFFFF;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer utilities {
@@ -25,24 +19,20 @@
   }
 }
 
-@utility brutal-border {
-  @apply border-2 border-brutal-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)];
-}
-
-@utility brutal-border-sm {
-  @apply border border-brutal-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
-}
-
-@utility brutal-btn {
-  @apply border-2 border-brutal-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-neon-green text-brutal-black font-display uppercase tracking-wider px-4 py-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all;
-}
-
 body {
-  @apply font-sans bg-brutal-white text-brutal-black antialiased;
+  @apply font-sans bg-neutral-50 text-neutral-900 antialiased;
   overscroll-behavior-y: contain;
 }
 
 /* Custom styles for Recharts tooltips */
 .recharts-tooltip-wrapper {
   @apply !z-50;
+}
+
+.glass-morphism {
+  @apply bg-white/80 backdrop-blur-md border border-white/20;
+}
+
+.safe-bottom {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }

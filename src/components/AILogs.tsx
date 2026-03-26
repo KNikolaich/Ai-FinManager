@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db, handleFirestoreError } from '../firebase';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { X, Terminal, Clock, User, Bot, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, Terminal, Clock, User, Bot, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
+import { OperationType } from '../types';
 
 interface AILog {
   id: string;
@@ -19,11 +20,13 @@ interface AILogsProps {
 export default function AILogs({ userId, onClose }: AILogsProps) {
   const [logs, setLogs] = useState<AILog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!userId) return;
 
+    setError(null);
     const q = query(
       collection(db, 'ai_logs'),
       where('userId', '==', userId),
@@ -38,6 +41,11 @@ export default function AILogs({ userId, onClose }: AILogsProps) {
       })) as AILog[];
       setLogs(newLogs);
       setLoading(false);
+    }, (err) => {
+      console.error('AI Logs Error:', err);
+      setError('Не удалось загрузить логи. Возможно, требуется создание индекса в Firestore.');
+      setLoading(false);
+      handleFirestoreError(err, OperationType.GET, 'ai_logs');
     });
 
     return () => unsubscribe();
@@ -98,6 +106,12 @@ export default function AILogs({ userId, onClose }: AILogsProps) {
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
             </div>
+          ) : error ? (
+            <div className="text-center py-20 px-6">
+              <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+              <p className="text-neutral-900 font-bold mb-2">{error}</p>
+              <p className="text-neutral-500 text-sm">Если вы видите это сообщение впервые, подождите несколько минут, пока Firestore создаст необходимые индексы.</p>
+            </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-20">
               <Terminal className="w-12 h-12 text-neutral-200 mx-auto mb-4" />
@@ -120,7 +134,9 @@ export default function AILogs({ userId, onClose }: AILogsProps) {
                         {log.request.model || 'Gemini'}
                       </span>
                       <span className="text-sm font-medium text-neutral-700 truncate max-w-[200px]">
-                        {log.request.contents?.slice(0, 50) || 'Анализ данных'}...
+                        {typeof log.request.contents === 'string' 
+                          ? log.request.contents.slice(0, 50) 
+                          : JSON.stringify(log.request.contents || 'Анализ данных').slice(0, 50)}...
                       </span>
                     </div>
                   </div>

@@ -180,30 +180,47 @@ export default function AIAssistant({ accounts, categories, transactions, budget
           throw new Error('Не удалось определить корректную сумму операции.');
         }
 
-        if (data.type === 'transfer') {
-          let targetAccountId = data.targetAccountId;
-          const foundTargetAccount = accounts.find(a => {
-            const searchId = String(targetAccountId).toLowerCase().trim();
-            const accountName = a.name.toLowerCase().trim();
-            const accountIdStr = String(a.id).toLowerCase().trim();
-            
-            return accountIdStr === searchId || 
-                   accountName === searchId || 
-                   accountName.includes(searchId) || 
-                   searchId.includes(accountName);
-          });
-          targetAccountId = foundTargetAccount?.id;
+          if (data.type === 'transfer') {
+            let targetAccountId = data.targetAccountId;
+            const foundTargetAccount = accounts.find(a => {
+              const searchId = String(targetAccountId).toLowerCase().trim();
+              const accountName = a.name.toLowerCase().trim();
+              const accountIdStr = String(a.id).toLowerCase().trim();
+              
+              return accountIdStr === searchId || 
+                     accountName === searchId || 
+                     accountName.includes(searchId) || 
+                     searchId.includes(accountName);
+            });
+            targetAccountId = foundTargetAccount?.id;
 
-          if (!targetAccountId) {
-            throw new Error('Для перевода необходимо указать корректный целевой счет.');
-          }
-          const batch = writeBatch(db);
-          const sourceRef = doc(db, 'accounts', accountId);
-          const targetRef = doc(db, 'accounts', targetAccountId);
-          batch.update(sourceRef, { balance: increment(-amount) });
-          batch.update(targetRef, { balance: increment(amount) });
-          await batch.commit();
-        } else {
+            if (!targetAccountId) {
+              throw new Error('Для перевода необходимо указать корректный целевой счет.');
+            }
+            const batch = writeBatch(db);
+            const sourceRef = doc(db, 'accounts', accountId);
+            const targetRef = doc(db, 'accounts', targetAccountId);
+            batch.update(sourceRef, { balance: increment(-amount) });
+            batch.update(targetRef, { balance: increment(amount) });
+            
+            const sourceAcc = accounts.find(a => a.id === accountId);
+            const targetAcc = accounts.find(a => a.id === targetAccountId);
+
+            const transactionData = {
+              userId,
+              accountId,
+              targetAccountId,
+              amount,
+              type: 'transfer',
+              description: data.description || `Перевод: ${sourceAcc?.name} -> ${targetAcc?.name}`,
+              createdAt: new Date().toISOString()
+            };
+
+            const transRef = doc(collection(db, 'transactions'));
+            batch.set(transRef, transactionData);
+
+            await batch.commit();
+          } else {
           await addDoc(collection(db, 'transactions'), {
             userId,
             accountId,
@@ -280,9 +297,10 @@ export default function AIAssistant({ accounts, categories, transactions, budget
       const msgRef = doc(db, 'chat_history', msgId);
       const msg = messages.find(m => m.id === msgId);
       if (msg) {
+        const currentContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
         await updateDoc(msgRef, {
           type: 'text',
-          content: msg.content + '\n\n✅ **Готово! Операция успешно выполнена.**'
+          content: currentContent + '\n\n✅ **Готово! Операция успешно выполнена.**'
         });
       }
     } catch (error: any) {
@@ -291,9 +309,10 @@ export default function AIAssistant({ accounts, categories, transactions, budget
       const msgRef = doc(db, 'chat_history', msgId);
       const msg = messages.find(m => m.id === msgId);
       if (msg) {
+        const currentContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
         await updateDoc(msgRef, {
           type: 'text',
-          content: msg.content + `\n\n❌ **Ошибка:** ${errorMessage}`
+          content: currentContent + `\n\n❌ **Ошибка:** ${errorMessage}`
         });
       }
       // Still log to firestore error handler if it was a firestore error
@@ -345,7 +364,7 @@ export default function AIAssistant({ accounts, categories, transactions, budget
               )}>
                 <div className="prose prose-sm max-w-none prose-p:leading-relaxed text-[12px] sm:text-sm">
                   <ReactMarkdown>
-                    {m.content}
+                    {typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}
                   </ReactMarkdown>
                 </div>
               </div>

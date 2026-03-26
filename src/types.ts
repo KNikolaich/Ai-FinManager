@@ -1,5 +1,5 @@
-export type TransactionType = 'income' | 'expense';
-export type AccountType = 'card' | 'cash' | 'bank';
+export type TransactionType = 'income' | 'expense' | 'transfer';
+export type AccountType = 'card' | 'cash' | 'bank' | 'credit';
 
 export interface UserSettings {
   showTotalBalance: boolean;
@@ -45,6 +45,7 @@ export interface Transaction {
   id: string;
   userId: string;
   accountId: string;
+  targetAccountId?: string;
   categoryId: string;
   subcategoryId?: string;
   amount: number;

@@ -10,10 +10,8 @@ interface AddTransactionProps {
   onComplete: () => void;
 }
 
-type ExtendedTransactionType = TransactionType | 'transfer';
-
 export default function AddTransaction({ accounts, categories, onComplete }: AddTransactionProps) {
-  const [type, setType] = useState<ExtendedTransactionType>('expense');
+  const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
   const [selectedTargetAccountId, setSelectedTargetAccountId] = useState(accounts[1]?.id || accounts[0]?.id || '');
@@ -39,6 +37,22 @@ export default function AddTransaction({ accounts, categories, onComplete }: Add
         batch.update(sourceRef, { balance: increment(-numAmount) });
         batch.update(targetRef, { balance: increment(numAmount) });
         
+        const sourceAcc = accounts.find(a => a.id === selectedAccountId);
+        const targetAcc = accounts.find(a => a.id === selectedTargetAccountId);
+
+        const transactionData = {
+          userId: sourceAcc?.userId,
+          accountId: selectedAccountId,
+          targetAccountId: selectedTargetAccountId,
+          amount: numAmount,
+          type: 'transfer',
+          description: description || `Перевод: ${sourceAcc?.name} -> ${targetAcc?.name}`,
+          createdAt: new Date().toISOString()
+        };
+
+        const transRef = doc(collection(db, 'transactions'));
+        batch.set(transRef, transactionData);
+
         try {
           await batch.commit();
         } catch (error) {

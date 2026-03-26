@@ -47,10 +47,13 @@ export const logout = () => signOut(auth);
 // Connection test
 async function testConnection() {
   try {
+    console.log('Testing Firestore connection to database:', firebaseConfig.firestoreDatabaseId || '(default)');
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    console.log('Firestore connection successful');
+  } catch (error: any) {
+    console.error("Firestore Connection Error:", error);
+    if (error.message?.includes('the client is offline') || error.code === 'unavailable') {
+      console.error("Could not reach Firestore. This might be due to an incorrect database ID or network issues.");
     }
   }
 }

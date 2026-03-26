@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Transaction, Category, Account } from '../types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Search, Filter, ArrowUpRight, ArrowDownLeft, Calendar } from 'lucide-react';
+import { Search, Filter, ArrowUpRight, ArrowDownLeft, Calendar, ArrowRightLeft } from 'lucide-react';
 
 interface TransactionsProps {
   transactions: Transaction[];
@@ -18,12 +18,13 @@ export default function Transactions({ transactions, categories, accounts }: Tra
     return transactions
       .filter(t => {
         const matchesSearch = t.description.toLowerCase().includes(search.toLowerCase()) || 
-                             categories.find(c => c.id === t.categoryId)?.name.toLowerCase().includes(search.toLowerCase());
+                             categories.find(c => c.id === t.categoryId)?.name.toLowerCase().includes(search.toLowerCase()) ||
+                             accounts.find(a => a.id === t.targetAccountId)?.name.toLowerCase().includes(search.toLowerCase());
         const matchesType = filterType === 'all' || t.type === filterType;
         return matchesSearch && matchesType;
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [transactions, search, filterType, categories]);
+  }, [transactions, search, filterType, categories, accounts]);
 
   const groupedTransactions = useMemo(() => {
     const groups: { [key: string]: Transaction[] } = {};
@@ -89,23 +90,39 @@ export default function Transactions({ transactions, categories, accounts }: Tra
               {items.map(t => {
                 const category = categories.find(c => c.id === t.categoryId);
                 const account = accounts.find(a => a.id === t.accountId);
+                const targetAccount = t.targetAccountId ? accounts.find(a => a.id === t.targetAccountId) : null;
+                
                 return (
                   <div key={t.id} className="bg-white p-4 rounded-2xl border border-neutral-100 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: category?.color + '20' }}>
-                        {category?.icon || '💰'}
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: (category?.color || '#3b82f6') + '20' }}>
+                        {t.type === 'transfer' ? '🔄' : (category?.icon || '💰')}
                       </div>
                       <div>
-                        <p className="font-semibold text-sm">{t.description || category?.name || 'Без описания'}</p>
-                        <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">{account?.name || 'Счет не указан'}</p>
+                        <p className="font-semibold text-sm">{t.description || category?.name || (t.type === 'transfer' ? 'Перевод' : 'Без описания')}</p>
+                        <p className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">
+                          {account?.name || 'Счет не указан'}
+                          {targetAccount && ` → ${targetAccount.name}`}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={cn("font-bold text-sm", t.type === 'income' ? "text-emerald-600" : "text-neutral-900")}>
-                        {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()} ₽
+                      <p className={cn(
+                        "font-bold text-sm", 
+                        t.type === 'income' ? "text-emerald-600" : 
+                        t.type === 'transfer' ? "text-blue-600" : 
+                        "text-neutral-900"
+                      )}>
+                        {t.type === 'income' ? '+' : t.type === 'transfer' ? '' : '-'}{t.amount.toLocaleString()} ₽
                       </p>
                       <div className="flex items-center justify-end gap-1">
-                        {t.type === 'income' ? <ArrowDownLeft className="w-3 h-3 text-emerald-500" /> : <ArrowUpRight className="w-3 h-3 text-neutral-300" />}
+                        {t.type === 'income' ? (
+                          <ArrowDownLeft className="w-3 h-3 text-emerald-500" />
+                        ) : t.type === 'transfer' ? (
+                          <ArrowRightLeft className="w-3 h-3 text-blue-500" />
+                        ) : (
+                          <ArrowUpRight className="w-3 h-3 text-neutral-300" />
+                        )}
                         <span className="text-[10px] text-neutral-400">{format(new Date(t.createdAt), 'HH:mm')}</span>
                       </div>
                     </div>
